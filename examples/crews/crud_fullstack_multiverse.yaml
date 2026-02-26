@@ -1,0 +1,64 @@
+name: crud_fullstack_multiverse
+description: CRUD fullstack with typed universe channels (contract -> backend -> frontend/test -> synth)
+spec: crud_contract
+# Requires agents such as:
+#   agents/crud_contract.yaml
+#   agents/crud_backend.yaml
+#   agents/crud_frontend.yaml
+#   agents/crud_tester.yaml
+#   agents/crud_synth.yaml
+
+universes:
+  - name: u_contract
+    spec: crud_contract
+    output_port: openapi
+    output_kind: contract/openapi
+    handoff_max_chars: 260
+
+  - name: u_backend
+    spec: crud_backend
+    depends_on: [u_contract]
+    input_port: context
+    output_port: api_summary
+    output_kind: summary/api
+    merge_policy: latest
+    handoff_max_chars: 260
+    input_prefix: |
+      [universe_hint]
+      Implement backend CRUD from upstream OpenAPI contract.
+
+  - name: u_frontend
+    spec: crud_frontend
+    depends_on: [u_backend]
+    input_port: context
+    output_port: page
+    output_kind: frontend/page
+    merge_policy: latest
+    handoff_max_chars: 240
+    input_prefix: |
+      [universe_hint]
+      Build frontend CRUD UI from backend API summary.
+
+  - name: u_test
+    spec: crud_tester
+    depends_on: [u_backend]
+    input_port: context
+    output_port: routes_tests
+    output_kind: backend/route
+    merge_policy: latest
+    handoff_max_chars: 220
+    input_prefix: |
+      [universe_hint]
+      Produce route-focused tests and backend validation checklist.
+
+  - name: u_synth
+    spec: crud_synth
+    depends_on: [u_contract, u_backend, u_frontend, u_test]
+    input_port: context
+    output_port: result
+    output_kind: plan/summary
+    merge_policy: append
+    handoff_max_chars: 260
+    input_prefix: |
+      [universe_hint]
+      Reconcile contract, backend, frontend and tests into one implementation plan.

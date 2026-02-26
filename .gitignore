@@ -1,0 +1,27 @@
+# Go
+bin/
+*.test
+*.out
+
+# Env/secrets
+.env
+.env.*
+!.env.example
+
+# Next.js / Node
+site/node_modules/
+site/.next/
+site/.next-dev/
+site/.next_backup_*/
+
+# Local runtime data
+sessions/
+tmp/
+.deeph/
+.gocache/
+.gopath/
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/

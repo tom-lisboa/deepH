@@ -1,0 +1,7 @@
+version: 1
+default_provider: local_mock
+providers:
+  - name: local_mock
+    type: mock
+    model: mock-small
+    timeout_ms: 3000

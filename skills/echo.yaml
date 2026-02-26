@@ -1,0 +1,3 @@
+name: echo
+type: echo
+description: Echoes input and args back to the runtime

@@ -1,0 +1,12 @@
+name: guide
+description: Example guide agent (stored in examples/, not loaded automatically)
+provider: local_mock
+model: mock-small
+system_prompt: |
+  You are a guide agent. Explain what will run and be explicit about assumptions.
+skills:
+  - echo
+startup_calls:
+  - skill: echo
+    args:
+      note: "hello from startup_calls"
