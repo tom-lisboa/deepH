@@ -53,6 +53,8 @@ func cmdStudio(args []string) error {
 		case "8":
 			runErr = studioCommandList(reader)
 		case "9":
+			runErr = studioUpdate(reader)
+		case "10":
 			printUsage()
 		case "0", "q", "quit", "exit":
 			fmt.Println("Bye.")
@@ -84,7 +86,8 @@ func printStudioScreen(workspace string) {
 	fmt.Println("6) Run once")
 	fmt.Println("7) Chat")
 	fmt.Println("8) Command dictionary")
-	fmt.Println("9) Help")
+	fmt.Println("9) Update deeph")
+	fmt.Println("10) Help")
 	fmt.Println("0) Exit")
 	fmt.Println("")
 }
@@ -216,6 +219,22 @@ func studioCommandList(reader *bufio.Reader) error {
 		args = append(args, "--category", category)
 	}
 	return cmdCommand(args)
+}
+
+func studioUpdate(reader *bufio.Reader) error {
+	tag, err := promptLine(reader, "Release tag (latest or vX.Y.Z)", "latest")
+	if err != nil {
+		return err
+	}
+	checkOnlyText, err := promptLine(reader, "Check only? (y/N)", "N")
+	if err != nil {
+		return err
+	}
+	args := []string{"--tag", strings.TrimSpace(tag)}
+	if strings.EqualFold(strings.TrimSpace(checkOnlyText), "y") || strings.EqualFold(strings.TrimSpace(checkOnlyText), "yes") {
+		args = append(args, "--check")
+	}
+	return cmdUpdate(args)
 }
 
 func promptLine(reader *bufio.Reader, label, def string) (string, error) {

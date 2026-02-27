@@ -27,6 +27,9 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
+		if isInteractiveTerminal(os.Stdin) {
+			return cmdStudio([]string{})
+		}
 		printUsage()
 		return nil
 	}
@@ -41,6 +44,8 @@ func run(args []string) error {
 		return cmdQuickstart(args[1:])
 	case "studio":
 		return cmdStudio(args[1:])
+	case "update":
+		return cmdUpdate(args[1:])
 	case "validate":
 		return cmdValidate(args[1:])
 	case "trace":
@@ -79,6 +84,7 @@ func printUsage() {
 	fmt.Println("  deeph init [--workspace DIR]")
 	fmt.Println("  deeph quickstart [--workspace DIR] [--agent NAME] [--provider NAME] [--model MODEL] [--with-echo] [--deepseek] [--force]")
 	fmt.Println("  deeph studio [--workspace DIR]")
+	fmt.Println("  deeph update [--owner NAME] [--repo NAME] [--tag latest|vX.Y.Z] [--check]")
 	fmt.Println("  deeph validate [--workspace DIR]")
 	fmt.Println(`  deeph trace [--workspace DIR] [--json] [--multiverse N] "<agent|a+b|a>b|a+b>c|@crew|crew:name>" [input]`)
 	fmt.Println(`  deeph run [--workspace DIR] [--trace] [--coach=false] [--multiverse N] [--judge-agent SPEC] [--judge-max-output-chars N] "<agent|a+b|a>b|a+b>c|@crew|crew:name>" [input]`)
@@ -100,6 +106,17 @@ func printUsage() {
 	fmt.Println("  deeph skill add [--workspace DIR] [--force] <name>")
 	fmt.Println("  deeph type list [--category CAT] [--json]")
 	fmt.Println("  deeph type explain [--json] <kind|alias>")
+}
+
+func isInteractiveTerminal(f *os.File) bool {
+	if f == nil {
+		return false
+	}
+	info, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return (info.Mode() & os.ModeCharDevice) != 0
 }
 
 func cmdInit(args []string) error {

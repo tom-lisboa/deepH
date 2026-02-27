@@ -57,6 +57,18 @@ Tips:
 - Notes:
   - Guides users through quickstart, provider setup, agent creation, run and chat.
 
+### `update`
+- Purpose: Download and install latest (or specific) GitHub release binary for this platform.
+- Usage:
+  - `deeph update [--owner NAME] [--repo NAME] [--tag latest|vX.Y.Z] [--check]`
+- Examples:
+  - `deeph update`
+  - `deeph update --check`
+  - `deeph update --tag v0.1.0`
+- Notes:
+  - Defaults to `tom-lisboa/deepH`.
+  - On Windows, update is downloaded as `deeph.new.exe` and replacement steps are printed.
+
 ### `validate`
 - Purpose: Validate `deeph.yaml`, agents and skills YAML files.
 - Usage:

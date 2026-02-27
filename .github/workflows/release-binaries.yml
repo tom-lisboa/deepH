@@ -29,6 +29,7 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/deeph-linux-amd64 ./cmd/deeph
           CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/deeph-windows-arm64.exe ./cmd/deeph
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/deeph-windows-amd64.exe ./cmd/deeph
+          (cd dist && sha256sum deeph-* > checksums.txt)
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
@@ -40,3 +41,4 @@ jobs:
             dist/deeph-linux-amd64
             dist/deeph-windows-arm64.exe
             dist/deeph-windows-amd64.exe
+            dist/checksums.txt

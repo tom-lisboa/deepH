@@ -47,73 +47,72 @@ MVP scaffold (working CLI) with:
 
 ## Quick Start (2 minutes)
 
-### macOS / Linux
+### Install from GitHub Releases (recommended)
+
+macOS / Linux:
 
 ```bash
-git clone https://github.com/tom-lisboa/deepH.git
-cd deepH
-./scripts/bootstrap.sh
-
-mkdir -p ~/deeph-workspace
-cd ~/deeph-workspace
-deeph quickstart --deepseek
-export DEEPSEEK_API_KEY="sk-...sua_chave_real..."
-deeph run guide "teste"
+curl -fsSL https://raw.githubusercontent.com/tom-lisboa/deepH/main/scripts/install.sh | bash
 ```
 
-### Windows (CMD)
+Windows PowerShell:
+
+```powershell
+iwr https://raw.githubusercontent.com/tom-lisboa/deepH/main/scripts/install.ps1 -UseBasicParsing | iex
+```
+
+Then run:
+
+```bash
+deeph
+```
+
+`deeph` opens `studio` by default in interactive terminals (guided menu).
+
+For quick non-interactive start:
+
+```bash
+mkdir -p ~/deeph-workspace && cd ~/deeph-workspace
+deeph quickstart --deepseek
+export DEEPSEEK_API_KEY="sk-...your_real_key..."
+deeph run guide "hello"
+```
+
+Windows CMD key setup:
 
 ```bat
-git clone https://github.com/tom-lisboa/deepH.git
-cd deepH
-scripts\quickstart.cmd C:\Users\%USERNAME%\deeph-workspace
-
-cd C:\Users\%USERNAME%\deeph-workspace
-set DEEPSEEK_API_KEY=sk-...sua_chave_real...
-<CAMINHO_DO_REPO_DEEPH>\deeph.exe run guide "teste"
+set DEEPSEEK_API_KEY=sk-...your_real_key...
 ```
 
 Notes:
 
 - `quickstart` creates workspace + starter agent + `echo` skill + validation in one flow.
 - Use a real DeepSeek key; placeholders like `sk-CHAVE_NOVA_REAL` will return 401.
-- If you prefer guided onboarding, run `deeph studio` and follow the interactive menu.
+- Update binary any time with `deeph update`.
 
 ### 3) Daily commands
 
 ```bash
 deeph trace guide "analyze this"
 deeph run guide "analyze this"
+deeph update --check
 
 # DAG/staged orchestration (quote it because '>' is a shell redirect)
 deeph trace "planner+reader>coder>reviewer" "build a concise plan and review"
 deeph run "planner+reader>coder>reviewer" "build a concise plan and review"
 ```
 
-## Distribution via NPM (recommended)
+### Release flow (maintainer)
 
-Use NPM as the UX entrypoint, keep the runtime in Go.
-
-User install:
+1. Bump version/tag:
 
 ```bash
-npm i -g deeph-cli
-deeph studio
+git tag v0.1.0
+git push origin v0.1.0
 ```
 
-Publisher flow:
-
-1. Create and push a git tag (`vX.Y.Z`).
-2. GitHub Action builds binaries and attaches assets to the release.
-3. Publish `/npm/deeph-cli` with the same version:
-
-```bash
-cd npm/deeph-cli
-npm version X.Y.Z --no-git-tag-version
-npm publish --access public
-```
-
-The NPM wrapper downloads the matching release binary automatically.
+2. GitHub Action `release-binaries` builds and uploads platform assets + `checksums.txt`.
+3. Users install/upgrade with `scripts/install.sh`, `scripts/install.ps1`, or `deeph update`.
 
 ### Dev mode (without installing binary)
 

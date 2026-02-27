@@ -210,6 +210,23 @@ func commandDictionary() []commandDoc {
 			},
 		},
 		{
+			Path:     "update",
+			Category: "workspace",
+			Summary:  "Download and install the latest (or specific) GitHub release binary for this platform",
+			Usage: []string{
+				"deeph update [--owner NAME] [--repo NAME] [--tag latest|vX.Y.Z] [--check]",
+			},
+			Examples: []string{
+				"deeph update",
+				"deeph update --check",
+				"deeph update --tag v0.1.0",
+			},
+			Notes: []string{
+				"Defaults to GitHub release owner/repo tom-lisboa/deepH.",
+				"On Windows, update is downloaded as deeph.new.exe and replacement steps are printed.",
+			},
+		},
+		{
 			Path:     "validate",
 			Category: "workspace",
 			Summary:  "Validate deeph.yaml, agents and skills YAML files",
