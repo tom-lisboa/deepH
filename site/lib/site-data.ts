@@ -965,5 +965,6 @@ export const docsSidebarItems = [
   { href: "/docs#tipos", label: "Tipos" },
   { href: "/docs#boas-praticas", label: "Boas Práticas" },
   { href: "/docs/calculadora", label: "Tutorial: Calculadora" },
+  { href: "/docs/funil-vendas", label: "Tutorial: Funil de Vendas" },
   { href: "/docs/comparativo-claude-code", label: "Comparativo Claude Code" }
 ];

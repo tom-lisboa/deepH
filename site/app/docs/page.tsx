@@ -415,6 +415,36 @@ deeph coach stats --json`}
         </div>
       </section>
 
+      <section id="multiverso-vendas" className="docs-section fade-up">
+        <div className="section-kicker">Sales multiverse</div>
+        <h2>Tutorial prático: funil de vendas com SDR, Closer e Prospecção</h2>
+        <p>
+          Exemplo completo de operação comercial estilo high-ticket: oferta, prospecção,
+          abordagem no Whats (kit <code className="code-inline">watsmeouw</code>), fechamento e
+          revops com CRM simples em Git.
+        </p>
+        <div className="section-grid">
+          <div className="panel">
+            <h3>O que você aprende</h3>
+            <ul className="subtle-list">
+              <li>Modelar time comercial como DAG de universos.</li>
+              <li>Passar leads entre papéis via channels tipados.</li>
+              <li>Executar multiverso + judge para síntese final do funil.</li>
+              <li>Registrar pipeline em `crm-lite/data/*.jsonl` versionado em Git.</li>
+            </ul>
+            <div className="mini-link-list" style={{ marginTop: "0.75rem" }}>
+              <Link href="/docs/funil-vendas">Abrir tutorial completo de funil de vendas</Link>
+              <Link href="/docs/universos">Revisar contratos de universos</Link>
+            </div>
+          </div>
+          <CodeBlock
+            language="bash"
+            code={`go run ./cmd/deeph trace --multiverse 0 @sales_team_multiverse "briefing da campanha"
+go run ./cmd/deeph run --multiverse 0 --judge-agent guide @sales_team_multiverse "briefing da campanha"`}
+          />
+        </div>
+      </section>
+
       <section id="deepseek-tools" className="docs-section fade-up">
         <div className="section-kicker">DeepSeek</div>
         <h2>DeepSeek tools vs skills do deepH (pesquisa + decisão prática)</h2>
