@@ -178,6 +178,23 @@ func commandDictionary() []commandDoc {
 			},
 		},
 		{
+			Path:     "quickstart",
+			Category: "workspace",
+			Summary:  "One-command starter setup (init workspace + starter agent + optional echo skill/provider)",
+			Usage: []string{
+				"deeph quickstart [--workspace DIR] [--agent NAME] [--provider NAME] [--model MODEL] [--with-echo] [--deepseek] [--force]",
+			},
+			Examples: []string{
+				"deeph quickstart",
+				"deeph quickstart --workspace ./myproj --deepseek",
+				"deeph quickstart --agent planner --provider deepseek --model deepseek-chat",
+			},
+			Notes: []string{
+				"Creates a starter agent template and validates the workspace immediately.",
+				"With `--deepseek`, scaffolds provider config and sets it as default.",
+			},
+		},
+		{
 			Path:     "validate",
 			Category: "workspace",
 			Summary:  "Validate deeph.yaml, agents and skills YAML files",
@@ -289,7 +306,7 @@ func commandDictionary() []commandDoc {
 			},
 			Examples: []string{
 				"deeph agent create analyst",
-				"deeph agent create reviewer --provider deepseek --model deepseek-chat",
+				"deeph agent create --provider deepseek --model deepseek-chat reviewer",
 			},
 			Notes: []string{
 				"Template includes examples of typed ports, routing, budgets and tool settings.",
@@ -337,9 +354,9 @@ func commandDictionary() []commandDoc {
 				"deeph provider add [--workspace DIR] [--name NAME] [--model MODEL] [--set-default] [--force] deepseek",
 			},
 			Examples: []string{
-				"deeph provider add deepseek --set-default",
-				"deeph provider add deepseek --name deepseek_prod --model deepseek-chat --timeout-ms 30000",
-				"deeph provider add deepseek --force --api-key-env DEEPSEEK_API_KEY",
+				"deeph provider add --set-default deepseek",
+				"deeph provider add --name deepseek_prod --model deepseek-chat --timeout-ms 30000 deepseek",
+				"deeph provider add --force --api-key-env DEEPSEEK_API_KEY deepseek",
 			},
 			Notes: []string{
 				"Scaffolds OpenAI-compatible DeepSeek config with sane defaults.",

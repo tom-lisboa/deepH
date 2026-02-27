@@ -161,7 +161,11 @@ func (p *DeepSeekProvider) Generate(ctx context.Context, req LLMRequest) (LLMRes
 		return LLMResponse{}, fmt.Errorf("read deepseek response: %w", err)
 	}
 	if resp.StatusCode >= 400 {
-		return LLMResponse{}, fmt.Errorf("deepseek status %d: %s", resp.StatusCode, trim(string(respBody), 500))
+		raw := trim(string(respBody), 500)
+		if hint := deepSeekHTTPErrorHint(resp.StatusCode, apiKeyEnv, apiKey, raw); hint != "" {
+			return LLMResponse{}, fmt.Errorf("deepseek status %d: %s | hint: %s", resp.StatusCode, raw, hint)
+		}
+		return LLMResponse{}, fmt.Errorf("deepseek status %d: %s", resp.StatusCode, raw)
 	}
 
 	var out deepSeekChatCompletionResponse
@@ -241,6 +245,43 @@ func (p *DeepSeekProvider) deepSeekPayload(req LLMRequest, model string) (map[st
 		}
 	}
 	return payload, nil
+}
+
+func deepSeekHTTPErrorHint(statusCode int, apiKeyEnv, apiKey, responseBody string) string {
+	body := strings.ToLower(strings.TrimSpace(responseBody))
+	isAuth := statusCode == http.StatusUnauthorized ||
+		strings.Contains(body, "authentication") ||
+		strings.Contains(body, "invalid api key") ||
+		strings.Contains(body, "api key") && strings.Contains(body, "invalid")
+	if !isAuth {
+		return ""
+	}
+
+	key := strings.TrimSpace(apiKey)
+	if looksLikePlaceholderAPIKey(key) {
+		return fmt.Sprintf("%s appears to be placeholder text; set a real DeepSeek key (example: set %s=sk-... on Windows CMD)", apiKeyEnv, apiKeyEnv)
+	}
+	if !strings.HasPrefix(key, "sk-") {
+		return fmt.Sprintf("%s does not look like a DeepSeek key (expected prefix sk-)", apiKeyEnv)
+	}
+	return fmt.Sprintf("check %s value, key status in DeepSeek dashboard, and provider base_url", apiKeyEnv)
+}
+
+func looksLikePlaceholderAPIKey(value string) bool {
+	v := strings.ToUpper(strings.TrimSpace(value))
+	if v == "" {
+		return true
+	}
+	markers := []string{
+		"CHAVE", "SUA_CHAVE", "YOUR_KEY", "REAL", "TOKEN", "API_KEY", "EXAMPLE", "PLACEHOLDER",
+		"<", ">", "{", "}", "...",
+	}
+	for _, m := range markers {
+		if strings.Contains(v, m) {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *DeepSeekProvider) deepSeekPayloadMessagesFromSimpleRequest(req LLMRequest) ([]map[string]any, error) {

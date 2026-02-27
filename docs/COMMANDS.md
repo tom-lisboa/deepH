@@ -35,6 +35,18 @@ Tips:
 - Usage:
   - `deeph init [--workspace DIR]`
 
+### `quickstart`
+- Purpose: One-command starter setup (init workspace + starter agent + optional echo skill/provider).
+- Usage:
+  - `deeph quickstart [--workspace DIR] [--agent NAME] [--provider NAME] [--model MODEL] [--with-echo] [--deepseek] [--force]`
+- Examples:
+  - `deeph quickstart`
+  - `deeph quickstart --workspace ./myproj --deepseek`
+  - `deeph quickstart --agent planner --provider deepseek --model deepseek-chat`
+- Notes:
+  - Creates a starter agent template and validates the workspace immediately.
+  - With `--deepseek`, scaffolds provider config and sets it as `default_provider`.
+
 ### `validate`
 - Purpose: Validate `deeph.yaml`, agents and skills YAML files.
 - Usage:
@@ -97,7 +109,7 @@ Tips:
   - `deeph agent create [--workspace DIR] [--force] [--provider NAME] [--model MODEL] <name>`
 - Examples:
   - `deeph agent create analyst`
-  - `deeph agent create reviewer --provider deepseek --model deepseek-chat`
+  - `deeph agent create --provider deepseek --model deepseek-chat reviewer`
 
 ## Crews
 
@@ -144,9 +156,9 @@ Tips:
 - Usage:
   - `deeph provider add [--workspace DIR] [--name NAME] [--model MODEL] [--set-default] [--force] deepseek`
 - Examples:
-  - `deeph provider add deepseek --set-default`
-  - `deeph provider add deepseek --name deepseek_prod --model deepseek-chat --timeout-ms 30000`
-  - `deeph provider add deepseek --force --api-key-env DEEPSEEK_API_KEY`
+  - `deeph provider add --set-default deepseek`
+  - `deeph provider add --name deepseek_prod --model deepseek-chat --timeout-ms 30000 deepseek`
+  - `deeph provider add --force --api-key-env DEEPSEEK_API_KEY deepseek`
 
 ## Kits
 

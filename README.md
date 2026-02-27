@@ -47,34 +47,36 @@ MVP scaffold (working CLI) with:
 
 ## Quick Start (2 minutes)
 
-### 1) Install local CLI from this repo
+### macOS / Linux
 
 ```bash
 git clone https://github.com/tom-lisboa/deepH.git
 cd deepH
 ./scripts/bootstrap.sh
-```
 
-### 2) Create your workspace and run first agent
-
-```bash
 mkdir -p ~/deeph-workspace
 cd ~/deeph-workspace
-
-deeph init
-cp <CAMINHO_DO_REPO_DEEPH>/examples/agents/guide.yaml agents/guide.yaml
-deeph skill add echo
-deeph validate
+deeph quickstart --deepseek
+export DEEPSEEK_API_KEY="sk-...sua_chave_real..."
 deeph run guide "teste"
 ```
 
-### 2.1) (Opcional) usar DeepSeek real
+### Windows (CMD)
 
-```bash
-deeph provider add deepseek --set-default
-export DEEPSEEK_API_KEY="sua_chave_aqui"
-deeph run guide "teste com DeepSeek"
+```bat
+git clone https://github.com/tom-lisboa/deepH.git
+cd deepH
+scripts\quickstart.cmd C:\Users\%USERNAME%\deeph-workspace
+
+cd C:\Users\%USERNAME%\deeph-workspace
+set DEEPSEEK_API_KEY=sk-...sua_chave_real...
+<CAMINHO_DO_REPO_DEEPH>\deeph.exe run guide "teste"
 ```
+
+Notes:
+
+- `quickstart` creates workspace + starter agent + `echo` skill + validation in one flow.
+- Use a real DeepSeek key; placeholders like `sk-CHAVE_NOVA_REAL` will return 401.
 
 ### 3) Daily commands
 
@@ -134,7 +136,7 @@ export DEEPSEEK_API_KEY="your_key_here"
 Then create an agent using DeepSeek:
 
 ```bash
-go run ./cmd/deeph agent create analyst --provider deepseek --model deepseek-chat
+go run ./cmd/deeph agent create --provider deepseek --model deepseek-chat analyst
 go run ./cmd/deeph run analyst "faça uma análise rápida"
 ```
 
@@ -158,7 +160,7 @@ Quick test:
 
 ```bash
 go run ./cmd/deeph skill add file_read_range
-go run ./cmd/deeph agent create reader --provider deepseek --model deepseek-chat
+go run ./cmd/deeph agent create --provider deepseek --model deepseek-chat reader
 ```
 
 Edit `agents/reader.yaml` and set:

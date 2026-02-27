@@ -37,6 +37,8 @@ func run(args []string) error {
 		return nil
 	case "init":
 		return cmdInit(args[1:])
+	case "quickstart":
+		return cmdQuickstart(args[1:])
 	case "validate":
 		return cmdValidate(args[1:])
 	case "trace":
@@ -73,6 +75,7 @@ func printUsage() {
 	fmt.Println("")
 	fmt.Println("Usage:")
 	fmt.Println("  deeph init [--workspace DIR]")
+	fmt.Println("  deeph quickstart [--workspace DIR] [--agent NAME] [--provider NAME] [--model MODEL] [--with-echo] [--deepseek] [--force]")
 	fmt.Println("  deeph validate [--workspace DIR]")
 	fmt.Println(`  deeph trace [--workspace DIR] [--json] [--multiverse N] "<agent|a+b|a>b|a+b>c|@crew|crew:name>" [input]`)
 	fmt.Println(`  deeph run [--workspace DIR] [--trace] [--coach=false] [--multiverse N] [--judge-agent SPEC] [--judge-max-output-chars N] "<agent|a+b|a>b|a+b>c|@crew|crew:name>" [input]`)
@@ -108,13 +111,11 @@ func cmdInit(args []string) error {
 	}
 	fmt.Printf("Initialized deepH workspace at %s\n", abs)
 	fmt.Println("Next steps:")
-	fmt.Println("  1. deeph skill list")
-	fmt.Println("  2. deeph skill add echo")
-	fmt.Println("  3. cp examples/agents/guide.yaml agents/guide.yaml   (optional guide)")
-	fmt.Println("  4. cp examples/crews/reviewpack.yaml crews/reviewpack.yaml   (optional multiverse crew)")
+	fmt.Println("  1. deeph quickstart --workspace . --deepseek   (recommended)")
+	fmt.Println("  2. set/export DEEPSEEK_API_KEY=\"sk-...\"")
+	fmt.Println("  3. deeph run guide \"teste\"")
+	fmt.Println("  4. or manual mode: skill add + agent create + validate")
 	fmt.Println("  5. deeph kit list   (optional prebuilt starter kits)")
-	fmt.Println("  6. or create your own agents/*.yaml")
-	fmt.Println("  7. deeph validate")
 	return nil
 }
 
@@ -666,7 +667,7 @@ func cmdProviderAdd(args []string) error {
 		fmt.Printf("default_provider=%s\n", p.Root.DefaultProvider)
 	}
 	fmt.Printf("Next steps:\n")
-	fmt.Printf("  1. export %s=\"<your_key>\"\n", cfg.APIKeyEnv)
+	fmt.Printf("  1. set/export %s=\"<your_key>\"\n", cfg.APIKeyEnv)
 	fmt.Printf("  2. deeph provider list\n")
 	fmt.Printf("  3. deeph agent create --provider %s --model %s analyst\n", cfg.Name, cfg.Model)
 	return nil
