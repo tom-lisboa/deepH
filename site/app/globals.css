@@ -1198,6 +1198,177 @@ kbd {
   margin: 0.9rem 0;
 }
 
+.kid-universe-scroll {
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+}
+
+.kid-universe-map {
+  position: relative;
+  min-width: 900px;
+  height: 460px;
+  border-radius: 26px;
+  border: 2px dashed rgba(255, 255, 255, 0.26);
+  background:
+    radial-gradient(circle at 18% 14%, rgba(255, 208, 138, 0.16), transparent 28%),
+    radial-gradient(circle at 82% 20%, rgba(137, 245, 191, 0.16), transparent 30%),
+    radial-gradient(circle at 50% 92%, rgba(109, 172, 255, 0.15), transparent 34%),
+    linear-gradient(180deg, rgba(17, 23, 27, 0.9), rgba(11, 16, 19, 0.96));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 18px 44px rgba(0, 0, 0, 0.24);
+  overflow: hidden;
+}
+
+.kid-universe-map::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+  background-size: 36px 36px;
+  opacity: 0.5;
+}
+
+.kid-universe-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.kid-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 9 7;
+  opacity: 0.9;
+}
+
+.kid-line-contract {
+  color: #ffe07f;
+}
+
+.kid-line-backend {
+  color: #8ef3c2;
+}
+
+.kid-line-frontend {
+  color: #9ec4ff;
+}
+
+.kid-line-test {
+  color: #ffb3bf;
+}
+
+.kid-node {
+  position: absolute;
+  width: 190px;
+  padding: 0.72rem 0.75rem;
+  border-radius: 22px 17px 24px 18px;
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  background: rgba(15, 23, 27, 0.92);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 8px 22px rgba(0, 0, 0, 0.28);
+  transform: rotate(var(--tilt, -1deg));
+  z-index: 2;
+}
+
+.kid-node h3 {
+  margin: 0;
+  font-family:
+    "Marker Felt",
+    "Bradley Hand",
+    "Segoe Print",
+    "Comic Sans MS",
+    "Chalkboard SE",
+    cursive;
+  font-size: 1.08rem;
+  letter-spacing: 0.01em;
+}
+
+.kid-node p {
+  margin: 0.38rem 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.kid-node span {
+  margin-top: 0.52rem;
+  display: inline-flex;
+  border-radius: 999px;
+  border: 1px dashed rgba(255, 255, 255, 0.28);
+  padding: 0.16rem 0.46rem;
+  font-size: 0.73rem;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.kid-node-contract {
+  top: 34px;
+  left: 34px;
+  --tilt: -3deg;
+  border-color: rgba(255, 224, 127, 0.66);
+}
+
+.kid-node-backend {
+  top: 160px;
+  left: 220px;
+  --tilt: 1.6deg;
+  border-color: rgba(142, 243, 194, 0.68);
+}
+
+.kid-node-frontend {
+  top: 96px;
+  right: 42px;
+  --tilt: -2deg;
+  border-color: rgba(158, 196, 255, 0.72);
+}
+
+.kid-node-test {
+  top: 260px;
+  right: 44px;
+  --tilt: 1.8deg;
+  border-color: rgba(255, 179, 191, 0.68);
+}
+
+.kid-node-synth {
+  left: 366px;
+  bottom: 22px;
+  --tilt: -1deg;
+  border-color: rgba(227, 199, 255, 0.7);
+}
+
+.kid-channel-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.48rem;
+}
+
+.kid-channel-list li {
+  border-radius: 12px;
+  border: 1px solid rgba(205, 230, 219, 0.13);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.55rem 0.62rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.kid-channel-list li span {
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
 .fade-up {
   animation: fadeUp 500ms ease both;
 }
@@ -1307,6 +1478,23 @@ kbd {
 
   .lab-copy-actions {
     grid-template-columns: 1fr;
+  }
+
+  .kid-universe-map {
+    min-width: 820px;
+    height: 440px;
+  }
+
+  .kid-node {
+    width: 178px;
+  }
+
+  .kid-node h3 {
+    font-size: 1rem;
+  }
+
+  .kid-node p {
+    font-size: 0.8rem;
   }
 }
 

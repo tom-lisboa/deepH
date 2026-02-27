@@ -13,6 +13,7 @@ site/node_modules/
 site/.next/
 site/.next-dev/
 site/.next_backup_*/
+site/tsconfig.tsbuildinfo
 
 # Local runtime data
 sessions/

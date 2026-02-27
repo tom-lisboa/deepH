@@ -2,11 +2,16 @@
   "name": "deeph-site",
   "private": true,
   "version": "0.1.0",
+  "engines": {
+    "node": ">=20 <24"
+  },
   "scripts": {
     "clean": "node -e \"const fs=require('fs'); for (const p of ['.next','.next-dev','tsconfig.tsbuildinfo']) fs.rmSync(p,{ recursive:true, force:true });\"",
-    "predev": "npm run clean",
+    "doctor:node": "node -e \"const major=Number(process.versions.node.split('.')[0]); const allow=process.env.DEEPH_ALLOW_UNSUPPORTED_NODE==='1'; if (major >= 24 && !allow) { console.error('\\n[deeph-site] Node 24 detectado e bloqueado para dev (instabilidade de webpack cache/chunks). Use Node 20 LTS.\\n[deeph-site] Se quiser forcar mesmo assim: DEEPH_ALLOW_UNSUPPORTED_NODE=1 npm run dev\\n'); process.exit(1); } if (major >= 24 && allow) { console.warn('\\n[deeph-site] Rodando em Node 24 por override. Se houver erro de chunk/cache, volte para Node 20.\\n'); }\"",
+    "predev": "npm run doctor:node && npm run clean",
     "prebuild": "npm run clean",
     "dev": "next dev",
+    "dev:unsafe": "DEEPH_ALLOW_UNSUPPORTED_NODE=1 next dev",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit"

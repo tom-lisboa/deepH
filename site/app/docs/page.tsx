@@ -385,6 +385,9 @@ deeph coach stats --json`}
               payload compacto (<code className="code-inline">summary/*</code> /{" "}
               <code className="code-inline">artifact/ref</code>), sem replay bruto.
             </div>
+            <div className="mini-link-list" style={{ marginTop: "0.7rem" }}>
+              <Link href="/docs/universos">Abrir documentação completa de universos</Link>
+            </div>
           </div>
 
           <div className="panel">

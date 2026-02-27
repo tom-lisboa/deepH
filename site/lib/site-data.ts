@@ -959,6 +959,7 @@ export const docsSidebarItems = [
   { href: "/docs#customizacao", label: "Criar Agents/Skills" },
   { href: "/docs#uso-em-projetos", label: "Usar em hello-world" },
   { href: "/docs#multiverso-codigo", label: "Multiverso para Codegen CRUD" },
+  { href: "/docs/universos", label: "Universos (Docs Dedicada)" },
   { href: "/docs#deepseek-tools", label: "DeepSeek Tools vs Skills" },
   { href: "/docs#comandos", label: "Comandos" },
   { href: "/docs#tipos", label: "Tipos" },
