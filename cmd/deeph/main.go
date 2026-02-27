@@ -583,10 +583,10 @@ func cmdProviderAdd(args []string) error {
 	timeoutMS := fs.Int("timeout-ms", 30000, "request timeout in milliseconds")
 	setDefault := fs.Bool("set-default", false, "set this provider as default_provider")
 	force := fs.Bool("force", false, "replace provider with the same name if it exists")
-	if err := fs.Parse(args); err != nil {
+	rest, err := parseFlagsLoose(fs, args)
+	if err != nil {
 		return err
 	}
-	rest := fs.Args()
 	if len(rest) != 1 {
 		return errors.New("provider add requires a provider type (currently: deepseek)")
 	}
@@ -668,7 +668,7 @@ func cmdProviderAdd(args []string) error {
 	fmt.Printf("Next steps:\n")
 	fmt.Printf("  1. export %s=\"<your_key>\"\n", cfg.APIKeyEnv)
 	fmt.Printf("  2. deeph provider list\n")
-	fmt.Printf("  3. deeph agent create analyst --provider %s --model %s\n", cfg.Name, cfg.Model)
+	fmt.Printf("  3. deeph agent create --provider %s --model %s analyst\n", cfg.Name, cfg.Model)
 	return nil
 }
 
@@ -678,10 +678,10 @@ func cmdAgentCreate(args []string) error {
 	force := fs.Bool("force", false, "overwrite if file exists")
 	provider := fs.String("provider", "", "provider name (defaults to deeph.yaml default_provider when available)")
 	model := fs.String("model", "mock-small", "model name")
-	if err := fs.Parse(args); err != nil {
+	rest, err := parseFlagsLoose(fs, args)
+	if err != nil {
 		return err
 	}
-	rest := fs.Args()
 	if len(rest) != 1 {
 		return errors.New("agent create requires <name>")
 	}
