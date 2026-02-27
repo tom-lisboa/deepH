@@ -45,26 +45,54 @@ MVP scaffold (working CLI) with:
     └── agents/
 ```
 
-## Quick Start
+## Quick Start (2 minutes)
+
+### 1) Install local CLI from this repo
+
+```bash
+git clone https://github.com/tom-lisboa/deepH.git
+cd deepH
+./scripts/bootstrap.sh
+```
+
+### 2) Create your workspace and run first agent
+
+```bash
+mkdir -p ~/deeph-workspace
+cd ~/deeph-workspace
+
+deeph init
+cp <CAMINHO_DO_REPO_DEEPH>/examples/agents/guide.yaml agents/guide.yaml
+deeph skill add echo
+deeph validate
+deeph run guide "teste"
+```
+
+### 2.1) (Opcional) usar DeepSeek real
+
+```bash
+deeph provider add deepseek --set-default
+export DEEPSEEK_API_KEY="sua_chave_aqui"
+deeph run guide "teste com DeepSeek"
+```
+
+### 3) Daily commands
+
+```bash
+deeph trace guide "analyze this"
+deeph run guide "analyze this"
+
+# DAG/staged orchestration (quote it because '>' is a shell redirect)
+deeph trace "planner+reader>coder>reviewer" "build a concise plan and review"
+deeph run "planner+reader>coder>reviewer" "build a concise plan and review"
+```
+
+### Dev mode (without installing binary)
 
 ```bash
 go run ./cmd/deeph init
-
-go run ./cmd/deeph skill list
-go run ./cmd/deeph skill add echo
-go run ./cmd/deeph agent create analyst
-go run ./cmd/deeph type list --category code
-go run ./cmd/deeph type explain CODE.GO
-# or: cp examples/agents/guide.yaml agents/guide.yaml
-
 go run ./cmd/deeph validate
-
-go run ./cmd/deeph trace analyst "analyze this"
-go run ./cmd/deeph run analyst "analyze this"
-
-# DAG/staged orchestration (quote it because '>' is a shell redirect)
-go run ./cmd/deeph trace "planner+reader>coder>reviewer"
-go run ./cmd/deeph run "planner+reader>coder>reviewer" "build a concise plan and review"
+go run ./cmd/deeph run guide "teste"
 ```
 
 ## Config Example (`deeph.yaml`)
