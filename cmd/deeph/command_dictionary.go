@@ -195,6 +195,21 @@ func commandDictionary() []commandDoc {
 			},
 		},
 		{
+			Path:     "studio",
+			Category: "workspace",
+			Summary:  "Interactive menu mode for onboarding and common workflows",
+			Usage: []string{
+				"deeph studio [--workspace DIR]",
+			},
+			Examples: []string{
+				"deeph studio",
+				"deeph studio --workspace ./myproj",
+			},
+			Notes: []string{
+				"Guides users through quickstart, provider setup, agent creation, run and chat.",
+			},
+		},
+		{
 			Path:     "validate",
 			Category: "workspace",
 			Summary:  "Validate deeph.yaml, agents and skills YAML files",

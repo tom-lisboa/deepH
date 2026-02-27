@@ -14,6 +14,7 @@ site/.next/
 site/.next-dev/
 site/.next_backup_*/
 site/tsconfig.tsbuildinfo
+npm/deeph-cli/vendor/
 
 # Local runtime data
 sessions/

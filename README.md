@@ -77,6 +77,7 @@ Notes:
 
 - `quickstart` creates workspace + starter agent + `echo` skill + validation in one flow.
 - Use a real DeepSeek key; placeholders like `sk-CHAVE_NOVA_REAL` will return 401.
+- If you prefer guided onboarding, run `deeph studio` and follow the interactive menu.
 
 ### 3) Daily commands
 
@@ -88,6 +89,31 @@ deeph run guide "analyze this"
 deeph trace "planner+reader>coder>reviewer" "build a concise plan and review"
 deeph run "planner+reader>coder>reviewer" "build a concise plan and review"
 ```
+
+## Distribution via NPM (recommended)
+
+Use NPM as the UX entrypoint, keep the runtime in Go.
+
+User install:
+
+```bash
+npm i -g deeph-cli
+deeph studio
+```
+
+Publisher flow:
+
+1. Create and push a git tag (`vX.Y.Z`).
+2. GitHub Action builds binaries and attaches assets to the release.
+3. Publish `/npm/deeph-cli` with the same version:
+
+```bash
+cd npm/deeph-cli
+npm version X.Y.Z --no-git-tag-version
+npm publish --access public
+```
+
+The NPM wrapper downloads the matching release binary automatically.
 
 ### Dev mode (without installing binary)
 

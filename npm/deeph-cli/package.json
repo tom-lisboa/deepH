@@ -1,0 +1,26 @@
+{
+  "name": "deeph-cli",
+  "version": "0.1.0",
+  "description": "deepH CLI launcher that installs the right prebuilt binary for your OS",
+  "license": "UNLICENSED",
+  "bin": {
+    "deeph": "bin/deeph.js"
+  },
+  "files": [
+    "bin",
+    "scripts",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "postinstall": "node scripts/install.js"
+  },
+  "keywords": [
+    "deeph",
+    "cli",
+    "agents",
+    "go"
+  ]
+}

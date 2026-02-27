@@ -39,6 +39,8 @@ func run(args []string) error {
 		return cmdInit(args[1:])
 	case "quickstart":
 		return cmdQuickstart(args[1:])
+	case "studio":
+		return cmdStudio(args[1:])
 	case "validate":
 		return cmdValidate(args[1:])
 	case "trace":
@@ -76,6 +78,7 @@ func printUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  deeph init [--workspace DIR]")
 	fmt.Println("  deeph quickstart [--workspace DIR] [--agent NAME] [--provider NAME] [--model MODEL] [--with-echo] [--deepseek] [--force]")
+	fmt.Println("  deeph studio [--workspace DIR]")
 	fmt.Println("  deeph validate [--workspace DIR]")
 	fmt.Println(`  deeph trace [--workspace DIR] [--json] [--multiverse N] "<agent|a+b|a>b|a+b>c|@crew|crew:name>" [input]`)
 	fmt.Println(`  deeph run [--workspace DIR] [--trace] [--coach=false] [--multiverse N] [--judge-agent SPEC] [--judge-max-output-chars N] "<agent|a+b|a>b|a+b>c|@crew|crew:name>" [input]`)

@@ -47,6 +47,16 @@ Tips:
   - Creates a starter agent template and validates the workspace immediately.
   - With `--deepseek`, scaffolds provider config and sets it as `default_provider`.
 
+### `studio`
+- Purpose: Interactive menu mode for onboarding and common workflows.
+- Usage:
+  - `deeph studio [--workspace DIR]`
+- Examples:
+  - `deeph studio`
+  - `deeph studio --workspace ./myproj`
+- Notes:
+  - Guides users through quickstart, provider setup, agent creation, run and chat.
+
 ### `validate`
 - Purpose: Validate `deeph.yaml`, agents and skills YAML files.
 - Usage:
