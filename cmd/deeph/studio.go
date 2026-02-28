@@ -63,6 +63,8 @@ func cmdStudio(args []string) error {
 			printStudioDoctor(currentWorkspace)
 		case "12":
 			currentWorkspace, runErr = studioCalculatorStarter(reader, state, currentWorkspace)
+		case "13":
+			currentWorkspace, runErr = studioSwitchWorkspace(reader, state, currentWorkspace)
 		case "0", "q", "quit", "exit":
 			fmt.Println("Bye.")
 			return nil
@@ -123,6 +125,7 @@ func printStudioScreen(workspace string) {
 	fmt.Println("10) Help")
 	fmt.Println("11) Studio doctor")
 	fmt.Println("12) Calculator workspace")
+	fmt.Println("13) Switch workspace")
 	fmt.Println("0) Exit")
 	fmt.Println("")
 }
@@ -225,14 +228,14 @@ func studioRun(reader *bufio.Reader, state *studioState, defaultWorkspace string
 		return defaultWorkspace, err
 	}
 	specDefault := "guide"
+	if strings.TrimSpace(state.LastAgentSpec) != "" {
+		specDefault = state.LastAgentSpec
+	}
 	wsStatus := collectStudioStatus(ws)
 	if strings.TrimSpace(wsStatus.LatestAgentSpec) != "" {
 		specDefault = wsStatus.LatestAgentSpec
 	}
-	if strings.TrimSpace(state.LastAgentSpec) != "" {
-		specDefault = state.LastAgentSpec
-	}
-	spec, err := promptLine(reader, "Agent spec", specDefault)
+	spec, err := promptAgentSpec(reader, ws, "Agent spec", specDefault)
 	if err != nil {
 		return ws, err
 	}
@@ -257,14 +260,14 @@ func studioChat(reader *bufio.Reader, state *studioState, defaultWorkspace strin
 		return defaultWorkspace, err
 	}
 	specDefault := "guide"
+	if strings.TrimSpace(state.LastAgentSpec) != "" {
+		specDefault = state.LastAgentSpec
+	}
 	wsStatus := collectStudioStatus(ws)
 	if strings.TrimSpace(wsStatus.LatestAgentSpec) != "" {
 		specDefault = wsStatus.LatestAgentSpec
 	}
-	if strings.TrimSpace(state.LastAgentSpec) != "" {
-		specDefault = state.LastAgentSpec
-	}
-	spec, err := promptLine(reader, "Agent spec", specDefault)
+	spec, err := promptAgentSpec(reader, ws, "Agent spec", specDefault)
 	if err != nil {
 		return ws, err
 	}
@@ -272,7 +275,7 @@ func studioChat(reader *bufio.Reader, state *studioState, defaultWorkspace strin
 	if strings.TrimSpace(sessionDefault) == "" {
 		sessionDefault = state.LastSessionID
 	}
-	sessionID, err := promptLine(reader, "Session id (optional)", sessionDefault)
+	sessionID, err := promptSessionID(reader, ws, "Session id (optional)", sessionDefault)
 	if err != nil {
 		return ws, err
 	}
@@ -369,6 +372,16 @@ func studioCalculatorStarter(reader *bufio.Reader, state *studioState, defaultWo
 	return ws, nil
 }
 
+func studioSwitchWorkspace(reader *bufio.Reader, state *studioState, defaultWorkspace string) (string, error) {
+	ws, err := promptWorkspace(reader, defaultWorkspace)
+	if err != nil {
+		return defaultWorkspace, err
+	}
+	state.LastWorkspace = ws
+	fmt.Printf("Workspace switched to %s\n", ws)
+	return ws, nil
+}
+
 func promptLine(reader *bufio.Reader, label, def string) (string, error) {
 	if strings.TrimSpace(def) != "" {
 		fmt.Printf("%s [%s]: ", label, def)
@@ -387,15 +400,12 @@ func promptLine(reader *bufio.Reader, label, def string) (string, error) {
 }
 
 func promptWorkspace(reader *bufio.Reader, defaultWorkspace string) (string, error) {
-	ws, err := promptLine(reader, "Workspace", defaultWorkspace)
+	state := loadStudioState()
+	ws, err := promptWorkspaceChoice(reader, defaultWorkspace, state.LastWorkspace)
 	if err != nil {
 		return "", err
 	}
-	abs, err := filepath.Abs(ws)
-	if err != nil {
-		return "", err
-	}
-	return abs, nil
+	return ws, nil
 }
 
 func promptYesNo(reader *bufio.Reader, label string, def bool) (bool, error) {
