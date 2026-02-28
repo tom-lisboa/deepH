@@ -99,6 +99,17 @@ Notes:
 
 ## Guided Walkthroughs
 
+- [Agents e Agent Spec no deepH](docs/AGENTS_AND_SPECS.md)
+- [O que e um agent](docs/AGENTS_AND_SPECS.md#o-que-e-um-agent)
+- [Anatomia do arquivo do agent](docs/AGENTS_AND_SPECS.md#anatomia-do-arquivo-do-agent)
+- [O que e um agent spec](docs/AGENTS_AND_SPECS.md#o-que-e-um-agent-spec)
+- [Como funciona o `+`](docs/AGENTS_AND_SPECS.md#como-funciona-o-operador-plus-)
+- [Como funciona o `>`](docs/AGENTS_AND_SPECS.md#como-funciona-o-operador-maior-que-)
+- [Combinar `+` e `>`](docs/AGENTS_AND_SPECS.md#combinar-plus--e-maior-que-)
+- [Quando usar cada formato](docs/AGENTS_AND_SPECS.md#quando-usar-cada-formato)
+- [Conversa com agents no chat](docs/AGENTS_AND_SPECS.md#conversa-com-agents-no-chat)
+- [Quando usar `@crew` ou `crew:nome`](docs/AGENTS_AND_SPECS.md#quando-usar-crew-ou-crewnome)
+- [Erros comuns](docs/AGENTS_AND_SPECS.md#erros-comuns)
 - [Windows PowerShell com deepH](docs/WINDOWS_POWERSHELL.md)
 - [Passo 1: instalar o deeph no PowerShell](docs/WINDOWS_POWERSHELL.md#passo-1-instalar-o-deeph)
 - [Passo 2: confirmar o binario](docs/WINDOWS_POWERSHELL.md#passo-2-confirmar-o-binario)
