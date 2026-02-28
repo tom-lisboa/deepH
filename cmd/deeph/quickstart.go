@@ -89,6 +89,7 @@ func cmdQuickstart(args []string) error {
 	if err := cmdValidate([]string{"--workspace", abs}); err != nil {
 		return err
 	}
+	saveStudioRecent(abs, strings.TrimSpace(*agentName), "")
 
 	fmt.Println("Quickstart complete.")
 	fmt.Println("Try:")

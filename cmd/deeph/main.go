@@ -400,6 +400,7 @@ func cmdRun(args []string) error {
 		if *showTrace {
 			fmt.Printf("Trace summary: multiverse_branches=%d source=%q scheduler=%s\n", len(branches), agentSpecArg, mvPlan.Scheduler)
 		}
+		saveStudioRecent(abs, agentSpecArg, "")
 		return nil
 	}
 	agentSpec := resolvedSpec
@@ -517,6 +518,7 @@ func cmdRun(args []string) error {
 	if *showTrace {
 		fmt.Printf("Trace summary: tasks=%d stages=%d handoffs=%d parallel=%v\n", len(plan.Tasks), len(plan.Stages), len(plan.Handoffs), plan.Parallel)
 	}
+	saveStudioRecent(abs, agentSpecArg, "")
 	return nil
 }
 

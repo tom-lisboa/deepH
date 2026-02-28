@@ -48,6 +48,7 @@ func cmdChat(args []string) error {
 	if strings.TrimSpace(meta.AgentSpec) == "" {
 		return errors.New("chat requires an agent spec (ex.: `deeph chat guide` or `deeph chat --session mysession guide`)")
 	}
+	saveStudioRecent(abs, meta.AgentSpec, meta.ID)
 	recordCoachCommandTransition(abs, "chat", meta.AgentSpec)
 
 	eng, err := runtime.New(abs, p)
