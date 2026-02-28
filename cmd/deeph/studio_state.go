@@ -131,7 +131,7 @@ func resolveInitialStudioWorkspace(flagWorkspace string, explicit bool, state *s
 	if saved == "" {
 		return abs
 	}
-	if _, err := os.Stat(saved); err != nil {
+	if !workspaceInitialized(saved) {
 		return abs
 	}
 	return saved
@@ -315,4 +315,3 @@ func defaultCalculatorWorkspace(currentWorkspace string) string {
 	}
 	return filepath.Join(home, "deeph-calculadora")
 }
-

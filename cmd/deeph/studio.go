@@ -26,7 +26,6 @@ func cmdStudio(args []string) error {
 	}
 	state := loadStudioState()
 	currentWorkspace := resolveInitialStudioWorkspace(abs, hasExplicitWorkspaceArg(args), state)
-	saveStudioRecent(currentWorkspace, "", "")
 	reader := bufio.NewReader(os.Stdin)
 	currentWorkspace, exitNow, err := maybeRunStudioLauncher(reader, state, currentWorkspace)
 	if err != nil {
@@ -80,7 +79,7 @@ func cmdStudio(args []string) error {
 			runErr = fmt.Errorf("unknown option %q", choice)
 		}
 
-		if strings.TrimSpace(currentWorkspace) != "" {
+		if workspaceInitialized(currentWorkspace) {
 			state.LastWorkspace = currentWorkspace
 			if err := saveStudioState(state); err != nil {
 				fmt.Printf("warning: failed to save studio state: %v\n", err)
@@ -169,6 +168,9 @@ func studioProviderAdd(reader *bufio.Reader, defaultWorkspace string) (string, e
 	if err != nil {
 		return defaultWorkspace, err
 	}
+	if err := requireInitializedWorkspace(ws); err != nil {
+		return defaultWorkspace, err
+	}
 	name, err := promptLine(reader, "Provider name", "deepseek")
 	if err != nil {
 		return ws, err
@@ -189,6 +191,9 @@ func studioProviderAdd(reader *bufio.Reader, defaultWorkspace string) (string, e
 func studioAgentCreate(reader *bufio.Reader, state *studioState, defaultWorkspace string) (string, error) {
 	ws, err := promptWorkspace(reader, defaultWorkspace)
 	if err != nil {
+		return defaultWorkspace, err
+	}
+	if err := requireInitializedWorkspace(ws); err != nil {
 		return defaultWorkspace, err
 	}
 	nameDefault := "planner"
@@ -227,12 +232,18 @@ func studioValidate(reader *bufio.Reader, defaultWorkspace string) (string, erro
 	if err != nil {
 		return defaultWorkspace, err
 	}
+	if err := requireInitializedWorkspace(ws); err != nil {
+		return defaultWorkspace, err
+	}
 	return ws, cmdValidate([]string{"--workspace", ws})
 }
 
 func studioRun(reader *bufio.Reader, state *studioState, defaultWorkspace string) (string, error) {
 	ws, err := promptWorkspace(reader, defaultWorkspace)
 	if err != nil {
+		return defaultWorkspace, err
+	}
+	if err := requireInitializedWorkspace(ws); err != nil {
 		return defaultWorkspace, err
 	}
 	specDefault := "guide"
@@ -265,6 +276,9 @@ func studioRun(reader *bufio.Reader, state *studioState, defaultWorkspace string
 func studioChat(reader *bufio.Reader, state *studioState, defaultWorkspace string) (string, error) {
 	ws, err := promptWorkspace(reader, defaultWorkspace)
 	if err != nil {
+		return defaultWorkspace, err
+	}
+	if err := requireInitializedWorkspace(ws); err != nil {
 		return defaultWorkspace, err
 	}
 	specDefault := "guide"
@@ -434,9 +448,19 @@ func studioSwitchWorkspace(reader *bufio.Reader, state *studioState, defaultWork
 	if err != nil {
 		return defaultWorkspace, err
 	}
+	if err := requireInitializedWorkspace(ws); err != nil {
+		return defaultWorkspace, err
+	}
 	state.LastWorkspace = ws
 	fmt.Printf("Workspace switched to %s\n", ws)
 	return ws, nil
+}
+
+func requireInitializedWorkspace(workspace string) error {
+	if workspaceInitialized(workspace) {
+		return nil
+	}
+	return fmt.Errorf("workspace not initialized: %s not found. Use Quickstart or `deeph quickstart --workspace %q --deepseek` first", filepath.Join(workspace, "deeph.yaml"), workspace)
 }
 
 func promptLine(reader *bufio.Reader, label, def string) (string, error) {
