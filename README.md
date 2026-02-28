@@ -64,6 +64,10 @@ Set-ExecutionPolicy -Scope Process Bypass -Force
 & $tmp
 ```
 
+Detailed Windows guide:
+
+- [Windows PowerShell step by step](docs/WINDOWS_POWERSHELL.md)
+
 Then run:
 
 ```bash
@@ -95,6 +99,14 @@ Notes:
 
 ## Guided Walkthroughs
 
+- [Windows PowerShell com deepH](docs/WINDOWS_POWERSHELL.md)
+- [Passo 1: instalar o deeph no PowerShell](docs/WINDOWS_POWERSHELL.md#passo-1-instalar-o-deeph)
+- [Passo 2: confirmar o binario](docs/WINDOWS_POWERSHELL.md#passo-2-confirmar-o-binario)
+- [Passo 3: salvar e importar a API key](docs/WINDOWS_POWERSHELL.md#passo-3-salvar-e-importar-a-api-key)
+- [Passo 4: criar o workspace](docs/WINDOWS_POWERSHELL.md#passo-4-criar-o-workspace)
+- [Passo 5: configurar o provider DeepSeek](docs/WINDOWS_POWERSHELL.md#passo-5-configurar-o-provider-deepseek)
+- [Passo 6: abrir o studio e conversar](docs/WINDOWS_POWERSHELL.md#passo-6-abrir-o-studio-e-conversar)
+- [Passo 7: troubleshooting](docs/WINDOWS_POWERSHELL.md#passo-7-troubleshooting)
 - [Calculadora estilo iPhone com deepH](docs/IPHONE_CALCULATOR.md)
 - [Passo 1: instalar o deeph](docs/IPHONE_CALCULATOR.md#passo-1-instalar-o-deeph)
 - [Passo 2: criar workspace e configurar a API key](docs/IPHONE_CALCULATOR.md#passo-2-criar-workspace-e-configurar-a-api-key)
