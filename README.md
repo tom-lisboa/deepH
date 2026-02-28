@@ -58,7 +58,7 @@ curl -fsSL https://raw.githubusercontent.com/tom-lisboa/deepH/main/scripts/insta
 Windows PowerShell:
 
 ```powershell
-iwr https://raw.githubusercontent.com/tom-lisboa/deepH/main/scripts/install.ps1 -UseBasicParsing | iex
+irm https://raw.githubusercontent.com/tom-lisboa/deepH/main/scripts/install.ps1 | iex
 ```
 
 Then run:

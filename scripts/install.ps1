@@ -2,10 +2,26 @@ param(
   [string]$Version = "latest",
   [string]$Owner = $(if ($env:DEEPH_GITHUB_OWNER) { $env:DEEPH_GITHUB_OWNER } else { "tom-lisboa" }),
   [string]$Repo = $(if ($env:DEEPH_GITHUB_REPO) { $env:DEEPH_GITHUB_REPO } else { "deepH" }),
-  [string]$InstallDir = $(if ($env:DEEPH_INSTALL_DIR) { $env:DEEPH_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA "Programs\deeph" })
+  [string]$InstallDir = ""
 )
 
 $ErrorActionPreference = "Stop"
+
+function Resolve-InstallDir([string]$ConfiguredDir) {
+  if ($ConfiguredDir) {
+    return $ConfiguredDir
+  }
+  if ($env:DEEPH_INSTALL_DIR) {
+    return $env:DEEPH_INSTALL_DIR
+  }
+  if ($env:LOCALAPPDATA) {
+    return (Join-Path $env:LOCALAPPDATA "Programs\deeph")
+  }
+  if ($env:USERPROFILE) {
+    return (Join-Path $env:USERPROFILE "AppData\Local\Programs\deeph")
+  }
+  throw "Unable to resolve install directory. Set -InstallDir or DEEPH_INSTALL_DIR."
+}
 
 function Get-AssetName {
   $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
@@ -30,6 +46,7 @@ function Add-PathIfMissing([string]$PathToAdd) {
   Write-Host "Added to user PATH: $PathToAdd"
 }
 
+$InstallDir = [System.IO.Path]::GetFullPath((Resolve-InstallDir $InstallDir))
 $asset = Get-AssetName
 $baseUrl = if ($Version -eq "latest") {
   "https://github.com/$Owner/$Repo/releases/latest/download"
@@ -40,7 +57,12 @@ $baseUrl = if ($Version -eq "latest") {
 $assetUrl = "$baseUrl/$asset"
 $checksumsUrl = "$baseUrl/checksums.txt"
 
-New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+try {
+  New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+} catch {
+  throw "Failed to create install directory '$InstallDir'. $($_.Exception.Message)"
+}
+
 $tmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("deeph-install-" + [Guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $tmpDir -Force | Out-Null
 $tmpAsset = Join-Path $tmpDir $asset
