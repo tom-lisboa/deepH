@@ -52,7 +52,8 @@ Windows PowerShell:
 ```powershell
 $tmp = Join-Path $env:TEMP "deeph-install.ps1"
 iwr https://raw.githubusercontent.com/tom-lisboa/deepH/main/scripts/install.ps1 -UseBasicParsing -OutFile $tmp
-powershell -ExecutionPolicy Bypass -File $tmp
+Set-ExecutionPolicy -Scope Process Bypass -Force
+& $tmp
 deeph
 ```
 

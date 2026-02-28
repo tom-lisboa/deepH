@@ -882,6 +882,13 @@ func loadAndValidate(workspace string) (*project.Project, string, *project.Valid
 	if err != nil {
 		return nil, "", nil, err
 	}
+	rootPath := filepath.Join(abs, project.RootConfigFile)
+	if _, err := os.Stat(rootPath); err != nil {
+		if os.IsNotExist(err) {
+			return nil, abs, nil, fmt.Errorf("workspace not initialized: %s not found (run `deeph quickstart --workspace %s --deepseek` or `deeph init --workspace %s` first)", rootPath, abs, abs)
+		}
+		return nil, abs, nil, err
+	}
 	p, err := project.Load(abs)
 	if err != nil {
 		return nil, abs, nil, err

@@ -14,6 +14,10 @@ function Resolve-InstallDir([string]$ConfiguredDir) {
   if ($env:DEEPH_INSTALL_DIR) {
     return $env:DEEPH_INSTALL_DIR
   }
+  $localAppData = [Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
+  if ($localAppData) {
+    return (Join-Path $localAppData "Programs\deeph")
+  }
   if ($env:LOCALAPPDATA) {
     return (Join-Path $env:LOCALAPPDATA "Programs\deeph")
   }
@@ -38,12 +42,21 @@ function Add-PathIfMissing([string]$PathToAdd) {
   if ($userPath) {
     $parts = $userPath.Split(";") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
   }
-  if ($parts -contains $PathToAdd) {
-    return
+  if ($parts -notcontains $PathToAdd) {
+    $newPath = if ($userPath) { "$userPath;$PathToAdd" } else { $PathToAdd }
+    [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
+    Write-Host "Added to user PATH: $PathToAdd"
   }
-  $newPath = if ($userPath) { "$userPath;$PathToAdd" } else { $PathToAdd }
-  [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
-  Write-Host "Added to user PATH: $PathToAdd"
+
+  $processPath = $env:Path
+  $processParts = @()
+  if ($processPath) {
+    $processParts = $processPath.Split(";") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+  }
+  if ($processParts -notcontains $PathToAdd) {
+    $env:Path = if ($processPath) { "$processPath;$PathToAdd" } else { $PathToAdd }
+    Write-Host "Added to current session PATH: $PathToAdd"
+  }
 }
 
 $InstallDir = [System.IO.Path]::GetFullPath((Resolve-InstallDir $InstallDir))
@@ -92,7 +105,7 @@ try {
 
   Write-Host ""
   Write-Host "Installed deeph at: $target"
-  Write-Host "Open a new terminal and run: deeph"
+  Write-Host "Run: deeph"
 } finally {
   if (Test-Path $tmpDir) {
     Remove-Item -Path $tmpDir -Recurse -Force

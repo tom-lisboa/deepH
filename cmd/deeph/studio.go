@@ -24,10 +24,11 @@ func cmdStudio(args []string) error {
 	if err != nil {
 		return err
 	}
+	currentWorkspace := abs
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
-		printStudioScreen(abs)
+		printStudioScreen(currentWorkspace)
 		choice, err := promptLine(reader, "Select option", "")
 		if err != nil {
 			return err
@@ -37,19 +38,19 @@ func cmdStudio(args []string) error {
 		var runErr error
 		switch choice {
 		case "1":
-			runErr = studioQuickstart(reader, abs, true)
+			currentWorkspace, runErr = studioQuickstart(reader, currentWorkspace, true)
 		case "2":
-			runErr = studioQuickstart(reader, abs, false)
+			currentWorkspace, runErr = studioQuickstart(reader, currentWorkspace, false)
 		case "3":
-			runErr = studioProviderAdd(reader, abs)
+			currentWorkspace, runErr = studioProviderAdd(reader, currentWorkspace)
 		case "4":
-			runErr = studioAgentCreate(reader, abs)
+			currentWorkspace, runErr = studioAgentCreate(reader, currentWorkspace)
 		case "5":
-			runErr = studioValidate(reader, abs)
+			currentWorkspace, runErr = studioValidate(reader, currentWorkspace)
 		case "6":
-			runErr = studioRun(reader, abs)
+			currentWorkspace, runErr = studioRun(reader, currentWorkspace)
 		case "7":
-			runErr = studioChat(reader, abs)
+			currentWorkspace, runErr = studioChat(reader, currentWorkspace)
 		case "8":
 			runErr = studioCommandList(reader)
 		case "9":
@@ -92,14 +93,14 @@ func printStudioScreen(workspace string) {
 	fmt.Println("")
 }
 
-func studioQuickstart(reader *bufio.Reader, defaultWorkspace string, deepseek bool) error {
-	ws, err := promptLine(reader, "Workspace", defaultWorkspace)
+func studioQuickstart(reader *bufio.Reader, defaultWorkspace string, deepseek bool) (string, error) {
+	ws, err := promptWorkspace(reader, defaultWorkspace)
 	if err != nil {
-		return err
+		return defaultWorkspace, err
 	}
 	agent, err := promptLine(reader, "Starter agent", "guide")
 	if err != nil {
-		return err
+		return ws, err
 	}
 	args := []string{"--workspace", ws, "--agent", agent}
 	if deepseek {
@@ -107,23 +108,23 @@ func studioQuickstart(reader *bufio.Reader, defaultWorkspace string, deepseek bo
 	} else {
 		args = append(args, "--provider", "local_mock", "--model", "mock-small")
 	}
-	return cmdQuickstart(args)
+	return ws, cmdQuickstart(args)
 }
 
-func studioProviderAdd(reader *bufio.Reader, defaultWorkspace string) error {
-	ws, err := promptLine(reader, "Workspace", defaultWorkspace)
+func studioProviderAdd(reader *bufio.Reader, defaultWorkspace string) (string, error) {
+	ws, err := promptWorkspace(reader, defaultWorkspace)
 	if err != nil {
-		return err
+		return defaultWorkspace, err
 	}
 	name, err := promptLine(reader, "Provider name", "deepseek")
 	if err != nil {
-		return err
+		return ws, err
 	}
 	model, err := promptLine(reader, "Model", "deepseek-chat")
 	if err != nil {
-		return err
+		return ws, err
 	}
-	return cmdProviderAdd([]string{
+	return ws, cmdProviderAdd([]string{
 		"--workspace", ws,
 		"--name", name,
 		"--model", model,
@@ -132,22 +133,22 @@ func studioProviderAdd(reader *bufio.Reader, defaultWorkspace string) error {
 	})
 }
 
-func studioAgentCreate(reader *bufio.Reader, defaultWorkspace string) error {
-	ws, err := promptLine(reader, "Workspace", defaultWorkspace)
+func studioAgentCreate(reader *bufio.Reader, defaultWorkspace string) (string, error) {
+	ws, err := promptWorkspace(reader, defaultWorkspace)
 	if err != nil {
-		return err
+		return defaultWorkspace, err
 	}
 	name, err := promptLine(reader, "Agent name", "planner")
 	if err != nil {
-		return err
+		return ws, err
 	}
 	provider, err := promptLine(reader, "Provider (optional)", "")
 	if err != nil {
-		return err
+		return ws, err
 	}
 	model, err := promptLine(reader, "Model", "deepseek-chat")
 	if err != nil {
-		return err
+		return ws, err
 	}
 	args := []string{"--workspace", ws}
 	if strings.TrimSpace(provider) != "" {
@@ -157,56 +158,56 @@ func studioAgentCreate(reader *bufio.Reader, defaultWorkspace string) error {
 		args = append(args, "--model", model)
 	}
 	args = append(args, name)
-	return cmdAgentCreate(args)
+	return ws, cmdAgentCreate(args)
 }
 
-func studioValidate(reader *bufio.Reader, defaultWorkspace string) error {
-	ws, err := promptLine(reader, "Workspace", defaultWorkspace)
+func studioValidate(reader *bufio.Reader, defaultWorkspace string) (string, error) {
+	ws, err := promptWorkspace(reader, defaultWorkspace)
 	if err != nil {
-		return err
+		return defaultWorkspace, err
 	}
-	return cmdValidate([]string{"--workspace", ws})
+	return ws, cmdValidate([]string{"--workspace", ws})
 }
 
-func studioRun(reader *bufio.Reader, defaultWorkspace string) error {
-	ws, err := promptLine(reader, "Workspace", defaultWorkspace)
+func studioRun(reader *bufio.Reader, defaultWorkspace string) (string, error) {
+	ws, err := promptWorkspace(reader, defaultWorkspace)
 	if err != nil {
-		return err
+		return defaultWorkspace, err
 	}
 	spec, err := promptLine(reader, "Agent spec", "guide")
 	if err != nil {
-		return err
+		return ws, err
 	}
 	input, err := promptLine(reader, "Input", "hello")
 	if err != nil {
-		return err
+		return ws, err
 	}
 	args := []string{"--workspace", ws, spec}
 	if strings.TrimSpace(input) != "" {
 		args = append(args, input)
 	}
-	return cmdRun(args)
+	return ws, cmdRun(args)
 }
 
-func studioChat(reader *bufio.Reader, defaultWorkspace string) error {
-	ws, err := promptLine(reader, "Workspace", defaultWorkspace)
+func studioChat(reader *bufio.Reader, defaultWorkspace string) (string, error) {
+	ws, err := promptWorkspace(reader, defaultWorkspace)
 	if err != nil {
-		return err
+		return defaultWorkspace, err
 	}
 	spec, err := promptLine(reader, "Agent spec", "guide")
 	if err != nil {
-		return err
+		return ws, err
 	}
 	sessionID, err := promptLine(reader, "Session id (optional)", "")
 	if err != nil {
-		return err
+		return ws, err
 	}
 	args := []string{"--workspace", ws}
 	if strings.TrimSpace(sessionID) != "" {
 		args = append(args, "--session", sessionID)
 	}
 	args = append(args, spec)
-	return cmdChat(args)
+	return ws, cmdChat(args)
 }
 
 func studioCommandList(reader *bufio.Reader) error {
@@ -252,6 +253,18 @@ func promptLine(reader *bufio.Reader, label, def string) (string, error) {
 		return def, nil
 	}
 	return v, nil
+}
+
+func promptWorkspace(reader *bufio.Reader, defaultWorkspace string) (string, error) {
+	ws, err := promptLine(reader, "Workspace", defaultWorkspace)
+	if err != nil {
+		return "", err
+	}
+	abs, err := filepath.Abs(ws)
+	if err != nil {
+		return "", err
+	}
+	return abs, nil
 }
 
 func waitEnter(reader *bufio.Reader) error {
