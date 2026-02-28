@@ -58,7 +58,9 @@ curl -fsSL https://raw.githubusercontent.com/tom-lisboa/deepH/main/scripts/insta
 Windows PowerShell:
 
 ```powershell
-iex ((iwr https://raw.githubusercontent.com/tom-lisboa/deepH/main/scripts/install.ps1 -UseBasicParsing).Content)
+$tmp = Join-Path $env:TEMP "deeph-install.ps1"
+iwr https://raw.githubusercontent.com/tom-lisboa/deepH/main/scripts/install.ps1 -UseBasicParsing -OutFile $tmp
+powershell -ExecutionPolicy Bypass -File $tmp
 ```
 
 Then run:
