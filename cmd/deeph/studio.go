@@ -28,6 +28,14 @@ func cmdStudio(args []string) error {
 	currentWorkspace := resolveInitialStudioWorkspace(abs, hasExplicitWorkspaceArg(args), state)
 	saveStudioRecent(currentWorkspace, "", "")
 	reader := bufio.NewReader(os.Stdin)
+	currentWorkspace, exitNow, err := maybeRunStudioLauncher(reader, state, currentWorkspace)
+	if err != nil {
+		return err
+	}
+	if exitNow {
+		fmt.Println("Bye.")
+		return nil
+	}
 
 	for {
 		printStudioScreen(currentWorkspace)
@@ -320,6 +328,55 @@ func studioUpdate(reader *bufio.Reader) error {
 		args = append(args, "--check")
 	}
 	return cmdUpdate(args)
+}
+
+func maybeRunStudioLauncher(reader *bufio.Reader, state *studioState, currentWorkspace string) (string, bool, error) {
+	if workspaceInitialized(currentWorkspace) {
+		return currentWorkspace, false, nil
+	}
+
+	fmt.Print("\033[2J\033[H")
+	fmt.Println("deepH STUDIO")
+	fmt.Println("==============")
+	fmt.Printf("No workspace found at %s\n", currentWorkspace)
+	fmt.Println("")
+	fmt.Println("1) Create workspace (DeepSeek)")
+	fmt.Println("2) Create workspace (local mock)")
+	fmt.Println("3) Open existing workspace")
+	fmt.Println("4) Calculator workspace")
+	fmt.Println("0) Exit")
+	fmt.Println("")
+
+	choice, err := promptLine(reader, "Select option", "1")
+	if err != nil {
+		return currentWorkspace, false, err
+	}
+
+	switch strings.ToLower(strings.TrimSpace(choice)) {
+	case "1":
+		ws, err := studioQuickstart(reader, state, currentWorkspace, true)
+		return ws, false, err
+	case "2":
+		ws, err := studioQuickstart(reader, state, currentWorkspace, false)
+		return ws, false, err
+	case "3":
+		ws, err := promptWorkspaceChoice(reader, currentWorkspace, state.LastWorkspace)
+		if err != nil {
+			return currentWorkspace, false, err
+		}
+		if !workspaceInitialized(ws) {
+			return currentWorkspace, false, fmt.Errorf("workspace not initialized: %s not found", filepath.Join(ws, "deeph.yaml"))
+		}
+		state.LastWorkspace = ws
+		return ws, false, nil
+	case "4":
+		ws, err := studioCalculatorStarter(reader, state, currentWorkspace)
+		return ws, false, err
+	case "0", "q", "quit", "exit":
+		return currentWorkspace, true, nil
+	default:
+		return currentWorkspace, false, fmt.Errorf("unknown option %q", choice)
+	}
 }
 
 func studioCalculatorStarter(reader *bufio.Reader, state *studioState, defaultWorkspace string) (string, error) {
