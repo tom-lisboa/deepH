@@ -90,6 +90,24 @@ Notes:
 - Use a real DeepSeek key; placeholders like `sk-CHAVE_NOVA_REAL` will return 401.
 - Update binary any time with `deeph update`.
 
+## Guided Walkthroughs
+
+- [Calculadora estilo iPhone com deepH](docs/IPHONE_CALCULATOR.md)
+- [Passo 1: instalar o deeph](docs/IPHONE_CALCULATOR.md#passo-1-instalar-o-deeph)
+- [Passo 2: criar workspace e configurar a API key](docs/IPHONE_CALCULATOR.md#passo-2-criar-workspace-e-configurar-a-api-key)
+- [Passo 3: bootstrap do workspace e aumento de timeout](docs/IPHONE_CALCULATOR.md#passo-3-bootstrap-do-workspace-e-aumento-de-timeout)
+- [Passo 4: gerar a base fullstack da calculadora](docs/IPHONE_CALCULATOR.md#passo-4-gerar-a-base-fullstack-da-calculadora)
+- [Passo 5: criar os agents de frontend iPhone](docs/IPHONE_CALCULATOR.md#passo-5-criar-os-agents-de-frontend-iphone)
+- [Passo 6: colar os prompts completos dos agents](docs/IPHONE_CALCULATOR.md#passo-6-colar-os-prompts-completos-dos-agents)
+- [Passo 7: criar o crew de multiverso front-only](docs/IPHONE_CALCULATOR.md#passo-7-criar-o-crew-de-multiverso-front-only)
+- [Passo 8: rodar o multiverso](docs/IPHONE_CALCULATOR.md#passo-8-rodar-o-multiverso)
+- [Passo 9: recovery se algum universo falhar](docs/IPHONE_CALCULATOR.md#passo-9-recovery-se-algum-universo-falhar)
+- [Passo 10: pedir para o deeph configurar Tailwind e a paleta iPhone](docs/IPHONE_CALCULATOR.md#passo-10-pedir-para-o-deeph-configurar-tailwind-e-a-paleta-iphone)
+- [Passo 11: subir backend e frontend](docs/IPHONE_CALCULATOR.md#passo-11-subir-backend-e-frontend)
+- [Passo 12: conferir o que foi gerado](docs/IPHONE_CALCULATOR.md#passo-12-conferir-o-que-foi-gerado)
+
+GitHub renders these links as clickable Markdown links on the repository homepage. Opening in a new tab is controlled by the browser/UI; use `Cmd`/`Ctrl` + click if needed.
+
 ### 3) Daily commands
 
 ```bash
