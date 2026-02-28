@@ -76,6 +76,10 @@ deeph
 
 `deeph` opens `studio` by default in interactive terminals (guided menu).
 
+Studio manual:
+
+- [Studio, workspace e chat no deepH](docs/STUDIO_MANUAL.md)
+
 For quick non-interactive start:
 
 ```bash
@@ -99,6 +103,22 @@ Notes:
 
 ## Guided Walkthroughs
 
+- [Studio, Workspace e Chat no deepH](docs/STUDIO_MANUAL.md)
+- [O que e o studio](docs/STUDIO_MANUAL.md#o-que-e-o-studio)
+- [O que e um workspace](docs/STUDIO_MANUAL.md#o-que-e-um-workspace)
+- [Criando a pasta do workspace](docs/STUDIO_MANUAL.md#criando-a-pasta-do-workspace)
+- [Como o deepH escolhe o workspace](docs/STUDIO_MANUAL.md#como-o-deeph-escolhe-o-workspace)
+- [Como abrir o studio](docs/STUDIO_MANUAL.md#como-abrir-o-studio)
+- [O launcher inicial](docs/STUDIO_MANUAL.md#o-launcher-inicial)
+- [Criar workspace com DeepSeek](docs/STUDIO_MANUAL.md#criar-workspace-com-deepseek)
+- [Criar workspace com local-mock](docs/STUDIO_MANUAL.md#criar-workspace-com-local-mock)
+- [Abrir um workspace existente](docs/STUDIO_MANUAL.md#abrir-um-workspace-existente)
+- [Trocar de workspace no studio](docs/STUDIO_MANUAL.md#trocar-de-workspace-no-studio)
+- [Como abrir um chat no studio](docs/STUDIO_MANUAL.md#como-abrir-um-chat-no-studio)
+- [Como abrir um chat direto pela CLI](docs/STUDIO_MANUAL.md#como-abrir-um-chat-direto-pela-cli)
+- [Como as sessoes funcionam](docs/STUDIO_MANUAL.md#como-as-sessoes-funcionam)
+- [Fluxo recomendado com IDE](docs/STUDIO_MANUAL.md#fluxo-recomendado-com-ide)
+- [Erros comuns do studio/chat](docs/STUDIO_MANUAL.md#erros-comuns)
 - [Agents e Agent Spec no deepH](docs/AGENTS_AND_SPECS.md)
 - [O que e um agent](docs/AGENTS_AND_SPECS.md#o-que-e-um-agent)
 - [Anatomia do arquivo do agent](docs/AGENTS_AND_SPECS.md#anatomia-do-arquivo-do-agent)
