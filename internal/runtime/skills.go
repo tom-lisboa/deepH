@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"deeph/internal/commanddoc"
 	"deeph/internal/project"
 	"deeph/internal/typesys"
 )
@@ -28,6 +29,83 @@ func (s *EchoSkill) Execute(_ context.Context, exec SkillExecution) (map[string]
 		"agent": exec.AgentName,
 		"input": exec.Input,
 		"args":  exec.Args,
+	}, nil
+}
+
+type CommandDocSkill struct{ cfg project.SkillConfig }
+
+func (s *CommandDocSkill) Name() string { return s.cfg.Name }
+func (s *CommandDocSkill) Description() string {
+	return coalesce(s.cfg.Description, "Looks up deeph command usage and examples")
+}
+func (s *CommandDocSkill) Execute(_ context.Context, exec SkillExecution) (map[string]any, error) {
+	query := strings.TrimSpace(coalesce(anyString(exec.Args["path"]), anyString(exec.Args["query"])))
+	category := strings.TrimSpace(anyString(exec.Args["category"]))
+	maxResults := 5
+	if v, ok := intArg(exec.Args, "max_results"); ok && v > 0 {
+		maxResults = v
+	}
+	if maxResults > 8 {
+		maxResults = 8
+	}
+	if query == "" && category == "" {
+		return nil, fmt.Errorf("command_doc requires args.path, args.query or args.category")
+	}
+
+	if query != "" {
+		if doc, ok := commanddoc.Lookup(query); ok {
+			return map[string]any{
+				"exact_match": true,
+				"path":        doc.Path,
+				"category":    doc.Category,
+				"summary":     doc.Summary,
+				"usage":       doc.Usage,
+				"examples":    clipStrings(doc.Examples, 3),
+				"notes":       clipStrings(doc.Notes, 4),
+			}, nil
+		}
+	}
+
+	matches := commanddoc.Search(query, category, maxResults)
+	if len(matches) == 0 {
+		return map[string]any{
+			"exact_match": false,
+			"query":       query,
+			"category":    category,
+			"matches":     []map[string]any{},
+		}, nil
+	}
+
+	if len(matches) == 1 {
+		doc := matches[0]
+		return map[string]any{
+			"exact_match": false,
+			"path":        doc.Path,
+			"category":    doc.Category,
+			"summary":     doc.Summary,
+			"usage":       doc.Usage,
+			"examples":    clipStrings(doc.Examples, 3),
+			"notes":       clipStrings(doc.Notes, 4),
+		}, nil
+	}
+
+	brief := make([]map[string]any, 0, len(matches))
+	for _, doc := range matches {
+		item := map[string]any{
+			"path":     doc.Path,
+			"category": doc.Category,
+			"summary":  doc.Summary,
+		}
+		if len(doc.Usage) > 0 {
+			item["usage"] = clipStrings(doc.Usage, 1)
+		}
+		brief = append(brief, item)
+	}
+	return map[string]any{
+		"exact_match": false,
+		"query":       query,
+		"category":    category,
+		"matches":     brief,
 	}, nil
 }
 
@@ -355,6 +433,8 @@ func newSkill(workspace string, sc project.SkillConfig) Skill {
 	switch sc.Type {
 	case "echo":
 		return &EchoSkill{cfg: sc}
+	case "command_doc":
+		return &CommandDocSkill{cfg: sc}
 	case "file_read":
 		return &FileReadSkill{cfg: sc, workspace: workspace}
 	case "file_read_range":
@@ -366,6 +446,16 @@ func newSkill(workspace string, sc project.SkillConfig) Skill {
 	default:
 		return &EchoSkill{cfg: project.SkillConfig{Name: sc.Name, Description: "fallback for unsupported skill type"}}
 	}
+}
+
+func clipStrings(items []string, limit int) []string {
+	if len(items) == 0 {
+		return nil
+	}
+	if limit <= 0 || len(items) <= limit {
+		return append([]string(nil), items...)
+	}
+	return append([]string(nil), items[:limit]...)
 }
 
 func resolveWorkspacePath(workspace, pathVal string) (clean string, fullClean string, err error) {

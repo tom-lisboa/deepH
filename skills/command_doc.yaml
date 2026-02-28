@@ -1,0 +1,3 @@
+name: command_doc
+type: command_doc
+description: Looks up deeph command usage and examples from the built-in command dictionary

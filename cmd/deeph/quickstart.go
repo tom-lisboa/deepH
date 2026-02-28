@@ -48,6 +48,17 @@ func cmdQuickstart(args []string) error {
 			fmt.Println("Skill template already present: echo")
 		}
 	}
+	if strings.EqualFold(strings.TrimSpace(*agentName), "guide") {
+		created, err := ensureSkillTemplate(abs, "command_doc", *force)
+		if err != nil {
+			return err
+		}
+		if created {
+			fmt.Println("Installed skill template: command_doc")
+		} else {
+			fmt.Println("Skill template already present: command_doc")
+		}
+	}
 
 	selectedProvider := strings.TrimSpace(*provider)
 	selectedModel := strings.TrimSpace(*model)
@@ -132,7 +143,11 @@ func ensureAgentTemplate(workspace, name, provider, model string, force bool) (b
 			return false, err
 		}
 	}
-	if _, err := scaffold.CreateAgentFile(workspace, scaffold.AgentTemplateOptions{
+	create := scaffold.CreateAgentFile
+	if strings.EqualFold(name, "guide") {
+		create = scaffold.CreateGuideStarterFile
+	}
+	if _, err := create(workspace, scaffold.AgentTemplateOptions{
 		Name:        name,
 		Provider:    strings.TrimSpace(provider),
 		Model:       strings.TrimSpace(model),

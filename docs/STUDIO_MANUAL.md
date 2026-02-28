@@ -256,6 +256,8 @@ Exemplo de `agent spec`:
 - `planner>coder`
 - `planner+reader>coder>reviewer`
 
+No starter padrao, o `guide` foi pensado para responder com comandos exatos do `deeph` e usar uma consulta curta ao dicionario de comandos so quando a sintaxe precisa ser confirmada.
+
 Quando houver sessoes recentes, o `studio` tambem lista as ultimas para facilitar resume.
 
 Dentro do chat, os comandos principais sao:

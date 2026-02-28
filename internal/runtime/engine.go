@@ -856,6 +856,8 @@ func (e *Engine) cacheKeyForSkillCall(agent project.AgentConfig, skillName, inpu
 	case "file_read", "file_read_range":
 		// Workspace-scoped deterministic reads; safe to dedupe across agents in a run.
 		return encodeSkillCacheKey("v1", typ, skillName, args, "")
+	case "command_doc":
+		return encodeSkillCacheKey("v1", typ, skillName, args, "")
 	case "echo":
 		// Echo includes input in result, so include it if user explicitly enables cache.
 		if !metadataBool(agent.Metadata, "cache_echo_tools") {
@@ -1089,6 +1091,29 @@ func toolParametersSchema(cfg project.SkillConfig) map[string]any {
 					"description": "Optional note to echo back",
 				},
 			},
+		}
+	case "command_doc":
+		return map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"path": map[string]any{
+					"type":        "string",
+					"description": "Exact deeph command path when known, such as chat, quickstart, provider add or kit add",
+				},
+				"query": map[string]any{
+					"type":        "string",
+					"description": "Fallback free-text query for deeph command lookup",
+				},
+				"category": map[string]any{
+					"type":        "string",
+					"description": "Optional command category filter such as workspace, execution, providers or sessions",
+				},
+				"max_results": map[string]any{
+					"type":        "integer",
+					"description": "Optional small cap for fuzzy matches",
+				},
+			},
+			"additionalProperties": false,
 		}
 	default:
 		return map[string]any{

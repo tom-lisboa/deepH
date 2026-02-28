@@ -22,6 +22,15 @@ type: echo
 description: Echoes input and args back to the runtime
 `,
 	},
+	"command_doc": {
+		Name:        "command_doc",
+		Description: "Looks up deeph command usage and examples from the built-in command dictionary",
+		Filename:    "command_doc.yaml",
+		Content: `name: command_doc
+type: command_doc
+description: Looks up deeph command usage and examples from the built-in command dictionary
+`,
+	},
 	"file_read": {
 		Name:        "file_read",
 		Description: "Reads a local file inside the workspace",

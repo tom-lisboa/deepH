@@ -21,6 +21,7 @@ var validProviderTypes = map[string]struct{}{
 
 var validSkillTypes = map[string]struct{}{
 	"echo":            {},
+	"command_doc":     {},
 	"file_read":       {},
 	"file_read_range": {},
 	"file_write_safe": {},

@@ -98,6 +98,7 @@ set DEEPSEEK_API_KEY=sk-...your_real_key...
 Notes:
 
 - `quickstart` creates workspace + starter agent + `echo` skill + validation in one flow.
+- The starter `guide` is tuned to answer with exact `deeph` commands and can consult the built-in command dictionary when needed.
 - Use a real DeepSeek key; placeholders like `sk-CHAVE_NOVA_REAL` will return 401.
 - Update binary any time with `deeph update`.
 
