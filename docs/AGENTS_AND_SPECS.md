@@ -325,6 +325,13 @@ deeph run @reviewpack "task"
 deeph trace crew:reviewpack "task"
 ```
 
+No Windows PowerShell, prefira aspas simples com `crew:nome`:
+
+```powershell
+deeph run 'crew:reviewpack' 'task'
+deeph trace 'crew:reviewpack' 'task'
+```
+
 Use crew quando voce quer:
 
 - reaproveitar um workflow pronto

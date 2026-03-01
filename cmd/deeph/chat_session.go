@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"deeph/internal/commanddoc"
 	"deeph/internal/runtime"
 )
 
@@ -419,14 +420,18 @@ func buildChatTurnInput(meta *chatSessionMeta, entries []chatSessionEntry, userM
 		return ""
 	}
 	selected := selectChatHistoryEntries(entries, historyTurns, historyTokens)
-	if len(selected) == 0 {
+	primer := buildChatCommandPrimer(meta, userMessage)
+	if len(selected) == 0 && primer == "" {
 		return userMessage
 	}
-	lines := make([]string, 0, len(selected)+8)
+	lines := make([]string, 0, len(selected)+16)
 	lines = append(lines, "[chat_session]")
 	lines = append(lines, "session_id: "+meta.ID)
 	if strings.TrimSpace(meta.AgentSpec) != "" {
 		lines = append(lines, "agent_spec: "+meta.AgentSpec)
+	}
+	if primer != "" {
+		lines = append(lines, primer)
 	}
 	lines = append(lines, "history:")
 	for _, e := range selected {
@@ -440,6 +445,189 @@ func buildChatTurnInput(meta *chatSessionMeta, entries []chatSessionEntry, userM
 	lines = append(lines, userMessage)
 	lines = append(lines, "instruction: continue the conversation, reuse prior context when relevant, avoid repeating previous answers.")
 	return strings.Join(lines, "\n")
+}
+
+type chatCommandIntent struct {
+	Keywords []string
+	Paths    []string
+}
+
+var chatCommandIntents = []chatCommandIntent{
+	{Keywords: []string{"quickstart", "workspace novo", "novo workspace", "iniciar workspace", "init workspace", "bootstrap"}, Paths: []string{"quickstart", "init", "validate"}},
+	{Keywords: []string{"workspace", "projeto", "project"}, Paths: []string{"quickstart", "validate", "studio"}},
+	{Keywords: []string{"provider", "deepseek", "api key", "modelo", "model"}, Paths: []string{"provider add", "provider list"}},
+	{Keywords: []string{"skill", "ferramenta", "tool"}, Paths: []string{"skill list", "skill add"}},
+	{Keywords: []string{"agent", "agente"}, Paths: []string{"agent create", "run", "chat"}},
+	{Keywords: []string{"crew", "multiverse", "universo"}, Paths: []string{"crew list", "crew show", "trace", "run"}},
+	{Keywords: []string{"trace", "plano", "plan", "handoff", "channel", "channels"}, Paths: []string{"trace", "run"}},
+	{Keywords: []string{"run", "rodar", "executar", "execucao", "execução"}, Paths: []string{"run", "trace"}},
+	{Keywords: []string{"chat", "conversa"}, Paths: []string{"chat", "session list", "session show"}},
+	{Keywords: []string{"session", "sessao", "sessão", "history", "historico", "histórico"}, Paths: []string{"session list", "session show", "chat"}},
+	{Keywords: []string{"kit", "starter"}, Paths: []string{"kit list", "kit add"}},
+	{Keywords: []string{"validate", "validar"}, Paths: []string{"validate"}},
+	{Keywords: []string{"command", "commands", "comando", "comandos", "cli", "ajuda", "help"}, Paths: []string{"command list", "command explain", "help"}},
+	{Keywords: []string{"type", "types", "tipo", "tipos"}, Paths: []string{"type list", "type explain"}},
+	{Keywords: []string{"coach", "hint", "dica"}, Paths: []string{"coach stats", "coach reset"}},
+	{Keywords: []string{"update", "upgrade", "atualizar"}, Paths: []string{"update"}},
+}
+
+func buildChatCommandPrimer(meta *chatSessionMeta, userMessage string) string {
+	if !chatShouldInjectCommandPrimer(meta, userMessage) {
+		return ""
+	}
+	docs := chatRelevantCommandDocs(userMessage)
+	if len(docs) == 0 {
+		return ""
+	}
+	lines := make([]string, 0, len(docs)*2+6)
+	lines = append(lines, "[deeph_command_primer]")
+	lines = append(lines, "When the request is about operating deepH, prefer exact deepH-native commands before generic shell commands.")
+	for _, doc := range docs {
+		lines = append(lines, fmt.Sprintf("- deeph %s: %s", doc.Path, doc.Summary))
+		if len(doc.Usage) > 0 {
+			lines = append(lines, "  usage: "+doc.Usage[0])
+		}
+	}
+	norm := normalizeChatLookupText(userMessage)
+	if strings.Contains(norm, "crew") && (strings.Contains(norm, "powershell") || strings.Contains(norm, "windows")) {
+		lines = append(lines, "note: on PowerShell, prefer 'crew:name' instead of @name when running or tracing crews.")
+	}
+	lines = append(lines, "instruction: answer with the smallest exact `deeph ...` command sequence that solves the user's deepH workflow question.")
+	return strings.Join(lines, "\n")
+}
+
+func chatShouldInjectCommandPrimer(meta *chatSessionMeta, userMessage string) bool {
+	norm := normalizeChatLookupText(userMessage)
+	if norm == "" {
+		return false
+	}
+	for _, kw := range []string{
+		"deeph",
+		"workspace",
+		"agent",
+		"agente",
+		"skill",
+		"crew",
+		"multiverse",
+		"universo",
+		"provider",
+		"deepseek",
+		"trace",
+		"validate",
+		"quickstart",
+		"studio",
+		"kit",
+		"command",
+		"comando",
+		"session",
+		"sessao",
+	} {
+		if strings.Contains(norm, kw) {
+			return true
+		}
+	}
+	if meta != nil && strings.EqualFold(strings.TrimSpace(meta.AgentSpec), "guide") {
+		for _, kw := range []string{"como", "how", "help", "ajuda", "rodar", "executar", "criar", "create", "listar", "list", "mostrar", "show", "configurar", "setup"} {
+			if strings.Contains(norm, kw) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func chatRelevantCommandDocs(userMessage string) []commanddoc.Doc {
+	norm := normalizeChatLookupText(userMessage)
+	if norm == "" {
+		return nil
+	}
+	scores := map[string]int{}
+	addPath := func(path string, score int) {
+		path = commanddoc.NormalizePath(path)
+		if path == "" {
+			return
+		}
+		scores[path] += score
+	}
+
+	for _, doc := range commanddoc.Dictionary() {
+		path := commanddoc.NormalizePath(doc.Path)
+		if strings.Contains(norm, path) {
+			addPath(doc.Path, 20)
+		}
+	}
+
+	for _, intent := range chatCommandIntents {
+		matched := false
+		for _, kw := range intent.Keywords {
+			if strings.Contains(norm, normalizeChatLookupText(kw)) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			continue
+		}
+		for i, path := range intent.Paths {
+			addPath(path, 12-i)
+		}
+	}
+
+	if len(scores) == 0 {
+		for _, path := range []string{"command list", "command explain", "run", "trace"} {
+			addPath(path, 1)
+		}
+	}
+
+	type scoredDoc struct {
+		doc   commanddoc.Doc
+		score int
+	}
+	list := make([]scoredDoc, 0, len(scores))
+	for path, score := range scores {
+		doc, ok := commanddoc.Lookup(path)
+		if !ok {
+			continue
+		}
+		list = append(list, scoredDoc{doc: doc, score: score})
+	}
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].score == list[j].score {
+			return list[i].doc.Path < list[j].doc.Path
+		}
+		return list[i].score > list[j].score
+	})
+	if len(list) > 4 {
+		list = list[:4]
+	}
+	out := make([]commanddoc.Doc, 0, len(list))
+	for _, item := range list {
+		out = append(out, item.doc)
+	}
+	return out
+}
+
+func normalizeChatLookupText(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	if s == "" {
+		return ""
+	}
+	repl := strings.NewReplacer(
+		"á", "a",
+		"à", "a",
+		"ã", "a",
+		"â", "a",
+		"é", "e",
+		"ê", "e",
+		"í", "i",
+		"ó", "o",
+		"ô", "o",
+		"õ", "o",
+		"ú", "u",
+		"ç", "c",
+	)
+	s = repl.Replace(s)
+	return strings.Join(strings.Fields(s), " ")
 }
 
 func selectChatHistoryEntries(entries []chatSessionEntry, maxTurns, maxTokens int) []chatSessionEntry {

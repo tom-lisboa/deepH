@@ -170,5 +170,11 @@ New-Item -ItemType Directory -Force -Path $workspace | Out-Null
 deeph quickstart --workspace $workspace --deepseek
 deeph provider add --workspace $workspace --name deepseek --model deepseek-chat --timeout-ms 120000 --set-default --force deepseek
 deeph kit add --workspace $workspace crud-next-multiverse --provider-name deepseek --model deepseek-chat --set-default-provider
-deeph run --workspace $workspace --multiverse 0 @crud_fullstack_multiverse "Crie uma calculadora fullstack com frontend Next.js, rotas API, controller/service, operacoes soma/subtracao/multiplicacao/divisao e testes basicos"
+deeph crew show --workspace $workspace crud_fullstack_multiverse
+deeph run --workspace $workspace --multiverse 0 'crew:crud_fullstack_multiverse' "Crie uma calculadora fullstack com frontend Next.js, rotas API, controller/service, operacoes soma/subtracao/multiplicacao/divisao e testes basicos"
 ```
+
+Observacoes:
+
+- no PowerShell, prefira `'crew:nome'` em vez de `@nome` para evitar conflito de parsing do shell
+- `deepH` carrega crews ativas de `crews/`; arquivos em `examples/crews/` servem como referencia e nao sao executados diretamente
