@@ -98,6 +98,12 @@ func cmdChat(args []string) error {
 			}
 			continue
 		}
+		if localText, ok := maybeAnswerGuideLocally(meta, line); ok {
+			replies := []chatReply{{Agent: meta.AgentSpec, Text: localText}}
+			printChatReplies(replies)
+			persistChatTurn(abs, meta, &entries, line, replies)
+			continue
+		}
 
 		if *showTrace {
 			printCompactChatPlan(plan, sinkIdxs)
@@ -137,42 +143,7 @@ func cmdChat(args []string) error {
 		if *showCoach && meta.Turns == 0 {
 			maybePrintCoachPostRunHint(abs, "chat", &plan, report)
 		}
-
-		meta.Turns++
-		now := time.Now()
-		meta.UpdatedAt = now
-
-		toAppend := make([]chatSessionEntry, 0, 1+len(replies))
-		toAppend = append(toAppend, chatSessionEntry{
-			Turn:      meta.Turns,
-			Role:      "user",
-			Text:      line,
-			CreatedAt: now,
-		})
-		for _, r := range replies {
-			text := strings.TrimSpace(r.Text)
-			if text == "" && r.Error != "" {
-				text = "error: " + r.Error
-			}
-			if text == "" {
-				continue
-			}
-			toAppend = append(toAppend, chatSessionEntry{
-				Turn:      meta.Turns,
-				Role:      "assistant",
-				Agent:     r.Agent,
-				Text:      text,
-				CreatedAt: now,
-			})
-		}
-		if err := appendChatSessionEntries(abs, meta.ID, toAppend); err != nil {
-			fmt.Printf("warning: failed to append session history: %v\n", err)
-		} else {
-			entries = append(entries, toAppend...)
-		}
-		if err := saveChatSessionMeta(abs, meta); err != nil {
-			fmt.Printf("warning: failed to save session metadata: %v\n", err)
-		}
+		persistChatTurn(abs, meta, &entries, line, replies)
 	}
 }
 
@@ -695,6 +666,47 @@ func indentForSessionShow(s string) string {
 		lines[i] = "  " + lines[i]
 	}
 	return strings.Join(lines, "\n")
+}
+
+func persistChatTurn(workspace string, meta *chatSessionMeta, entries *[]chatSessionEntry, userLine string, replies []chatReply) {
+	if meta == nil {
+		return
+	}
+	meta.Turns++
+	now := time.Now()
+	meta.UpdatedAt = now
+
+	toAppend := make([]chatSessionEntry, 0, 1+len(replies))
+	toAppend = append(toAppend, chatSessionEntry{
+		Turn:      meta.Turns,
+		Role:      "user",
+		Text:      userLine,
+		CreatedAt: now,
+	})
+	for _, r := range replies {
+		text := strings.TrimSpace(r.Text)
+		if text == "" && r.Error != "" {
+			text = "error: " + r.Error
+		}
+		if text == "" {
+			continue
+		}
+		toAppend = append(toAppend, chatSessionEntry{
+			Turn:      meta.Turns,
+			Role:      "assistant",
+			Agent:     r.Agent,
+			Text:      text,
+			CreatedAt: now,
+		})
+	}
+	if err := appendChatSessionEntries(workspace, meta.ID, toAppend); err != nil {
+		fmt.Printf("warning: failed to append session history: %v\n", err)
+	} else if entries != nil {
+		*entries = append(*entries, toAppend...)
+	}
+	if err := saveChatSessionMeta(workspace, meta); err != nil {
+		fmt.Printf("warning: failed to save session metadata: %v\n", err)
+	}
 }
 
 func max(a, b int) int {
