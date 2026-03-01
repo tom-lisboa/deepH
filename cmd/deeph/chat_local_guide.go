@@ -70,29 +70,29 @@ func localGuideRecipeReply(norm string) (string, bool) {
 		), true
 	case containsAny(norm, "crud") || (containsAny(norm, "postgres", "mysql", "sqlite", "mongo", "mongodb", "banco") && containsAny(norm, "backend", "api", "cadastro")):
 		return formatLocalGuideReply(
-			"Para CRUD com base pronta, o melhor caminho no momento e usar o kit multiverse e adaptar o prompt para o seu dominio:",
+			"Para CRUD com a UX mais direta no `deepH`, use o fluxo opinativo `deeph crud`:",
 			[]string{
-				"deeph kit add crud-next-multiverse --provider-name deepseek --model deepseek-chat --set-default-provider",
-				"deeph crew show crud_fullstack_multiverse",
-				"deeph trace --multiverse 0 \"crew:crud_fullstack_multiverse\" " + strconv.Quote("crie um backend CRUD para "+subject),
-				"deeph run --multiverse 0 \"crew:crud_fullstack_multiverse\" " + strconv.Quote("crie um backend CRUD para "+subject),
+				"deeph crud init",
+				"deeph crud trace --entity people --fields nome:text,cidade:text",
+				"deeph crud run --entity people --fields nome:text,cidade:text",
 			},
 			[]string{
-				"Se voce quiser so backend, deixe isso explicito no prompt para o crew nao gastar energia com frontend.",
-				"Depois da primeira geracao, refine com um agent dedicado para infra, testes ou banco se precisar.",
+				"O fluxo `deeph crud` ja assume os defaults opinativos: backend em Go, frontend em Next.js e banco em Postgres.",
+				"Se voce quiser so backend, use `deeph crud run --backend-only --entity people --fields nome:text,cidade:text`.",
+				"Depois da primeira geracao, refine o dominio trocando `people` pelos agregados reais de " + subject + ".",
 			},
 		), true
 	case containsAny(norm, "backend", "beck end", "back end", "api", "servidor"):
 		return formatLocalGuideReply(
-			"Hoje nao existe `deeph create backend`. Para criar um backend dentro do seu workspace, o fluxo mais direto e este:",
+			"Hoje nao existe `deeph create backend`. Se a sua ideia e um backend CRUD com a stack opinativa do produto, o fluxo mais direto e este:",
 			[]string{
-				"deeph agent create backend_builder",
-				"deeph trace backend_builder " + strconv.Quote("crie um backend Go para "+subject),
-				"deeph run backend_builder " + strconv.Quote("crie um backend Go para "+subject),
+				"deeph crud init",
+				"deeph crud trace --backend-only --entity people --fields nome:text,cidade:text",
+				"deeph crud run --backend-only --entity people --fields nome:text,cidade:text",
 			},
 			[]string{
-				"Use `trace` antes de `run` quando voce quiser revisar o caminho sem gastar token desnecessario.",
-				"Se o backend for CRUD, banco ou containers, descreva isso no prompt em vez de esperar um comando magico do CLI.",
+				"Esse fluxo ja assume backend em Go, banco Postgres e pode subir com containers.",
+				"Se o seu dominio nao for `people`, troque a entidade e os campos para refletir " + subject + ".",
 			},
 		), true
 	case containsAny(norm, "provider", "deepseek", "api key"):

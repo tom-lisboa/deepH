@@ -425,6 +425,7 @@ type chatCommandIntent struct {
 
 var chatCommandIntents = []chatCommandIntent{
 	{Keywords: []string{"quickstart", "workspace novo", "novo workspace", "iniciar workspace", "init workspace", "bootstrap"}, Paths: []string{"quickstart", "init", "validate"}},
+	{Keywords: []string{"crud", "cadastro", "relacional", "postgres", "mysql", "sqlite"}, Paths: []string{"crud init", "crud trace", "crud run"}},
 	{Keywords: []string{"workspace", "projeto", "project"}, Paths: []string{"quickstart", "validate", "studio"}},
 	{Keywords: []string{"provider", "deepseek", "api key", "modelo", "model"}, Paths: []string{"provider add", "provider list"}},
 	{Keywords: []string{"skill", "ferramenta", "tool"}, Paths: []string{"skill list", "skill add"}},

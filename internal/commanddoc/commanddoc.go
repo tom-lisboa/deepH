@@ -372,6 +372,65 @@ var docs = []Doc{
 		},
 	},
 	{
+		Path:     "crud init",
+		Category: "crud",
+		Summary:  "Initialize the opinionated CRUD starter (Go backend, Next.js frontend, Postgres, multiverse crew)",
+		Usage: []string{
+			"deeph crud init [--workspace DIR] [--force] [--provider-name NAME] [--model MODEL] [--set-default-provider] [--skip-provider]",
+		},
+		Examples: []string{
+			"deeph crud init",
+			"deeph crud init --workspace ./futebol",
+		},
+		Notes: []string{
+			"Bootstraps the workspace if needed and installs the `crud-next-multiverse` kit.",
+			"Defaults to Go + Next.js + Postgres as the recommended CRUD stack.",
+		},
+	},
+	{
+		Path:     "crud prompt",
+		Category: "crud",
+		Summary:  "Print the opinionated CRUD prompt that will be sent to the multiverse crew",
+		Usage: []string{
+			"deeph crud prompt [--workspace DIR] [--entity NAME] [--fields nome:text,cidade:text] [--db postgres] [--backend go] [--frontend next] [--backend-only]",
+		},
+		Examples: []string{
+			"deeph crud prompt --entity players --fields nome:text,cidade:text",
+			"deeph crud prompt --entity teams --fields nome:text,cidade:text,pais:text --backend-only",
+		},
+	},
+	{
+		Path:     "crud trace",
+		Category: "crud",
+		Summary:  "Trace the CRUD multiverse run using the opinionated Go + Next + Postgres defaults",
+		Usage: []string{
+			"deeph crud trace [--workspace DIR] [--entity NAME] [--fields nome:text,cidade:text] [--db postgres] [--backend go] [--frontend next] [--backend-only]",
+		},
+		Examples: []string{
+			"deeph crud trace --entity people --fields nome:text,cidade:text",
+			"deeph crud trace --workspace ./futebol --entity players --fields nome:text,posicao:text,time_id:int",
+		},
+		Notes: []string{
+			"Runs `deeph trace --multiverse 0 crew:crud_fullstack_multiverse ...` with a generated CRUD prompt.",
+		},
+	},
+	{
+		Path:     "crud run",
+		Category: "crud",
+		Summary:  "Run the CRUD multiverse crew with the opinionated Go + Next + Postgres defaults",
+		Usage: []string{
+			"deeph crud run [--workspace DIR] [--entity NAME] [--fields nome:text,cidade:text] [--db postgres] [--backend go] [--frontend next] [--backend-only]",
+		},
+		Examples: []string{
+			"deeph crud run --entity people --fields nome:text,cidade:text",
+			"deeph crud run --workspace ./futebol --entity players --fields nome:text,posicao:text,time_id:int",
+		},
+		Notes: []string{
+			"Runs `deeph run --multiverse 0 crew:crud_fullstack_multiverse ...` with a generated CRUD prompt.",
+			"Use `--backend-only` when you want just the Go API and infra without generating Next.js pages.",
+		},
+	},
+	{
 		Path:     "coach stats",
 		Category: "coach",
 		Summary:  "Inspect local coach learning state (hints, command counts, transitions, port hotspots)",

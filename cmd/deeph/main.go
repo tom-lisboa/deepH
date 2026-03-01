@@ -72,6 +72,8 @@ func run(args []string) error {
 		return cmdCommand(args[1:])
 	case "type":
 		return cmdType(args[1:])
+	case "crud":
+		return cmdCRUD(args[1:])
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
@@ -98,6 +100,10 @@ func printUsage() {
 	fmt.Println("  deeph provider add [--workspace DIR] [--name NAME] [--model MODEL] [--set-default] [--force] deepseek")
 	fmt.Println("  deeph kit list [--workspace DIR]")
 	fmt.Println("  deeph kit add [--workspace DIR] [--force] [--provider-name NAME] [--model MODEL] [--set-default-provider] [--skip-provider] <name|git-url[#manifest.yaml]>")
+	fmt.Println("  deeph crud init [--workspace DIR] [--force] [--provider-name NAME] [--model MODEL] [--set-default-provider] [--skip-provider]")
+	fmt.Println("  deeph crud prompt [--workspace DIR] [--entity NAME] [--fields nome:text,cidade:text] [--db postgres] [--backend go] [--frontend next] [--backend-only]")
+	fmt.Println("  deeph crud trace [--workspace DIR] [--entity NAME] [--fields nome:text,cidade:text] [--db postgres] [--backend go] [--frontend next] [--backend-only]")
+	fmt.Println("  deeph crud run [--workspace DIR] [--entity NAME] [--fields nome:text,cidade:text] [--db postgres] [--backend go] [--frontend next] [--backend-only]")
 	fmt.Println("  deeph coach stats [--workspace DIR] [--top N] [--scope SPEC] [--kind KIND] [--json]")
 	fmt.Println("  deeph coach reset [--workspace DIR] [--all] [--hints] [--transitions] [--commands] [--ports] --yes")
 	fmt.Println("  deeph command list [--category CAT] [--json]")

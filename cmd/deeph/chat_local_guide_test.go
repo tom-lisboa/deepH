@@ -14,9 +14,9 @@ func TestMaybeAnswerGuideLocallyBackendRecipe(t *testing.T) {
 	}
 	for _, want := range []string{
 		"Hoje nao existe `deeph create backend`",
-		"deeph agent create backend_builder",
-		"deeph trace backend_builder",
-		"deeph run backend_builder",
+		"deeph crud init",
+		"deeph crud trace --backend-only",
+		"deeph crud run --backend-only",
 		"projeto de futebol",
 	} {
 		if !strings.Contains(got, want) {
