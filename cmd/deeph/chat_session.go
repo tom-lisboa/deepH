@@ -534,6 +534,9 @@ func buildChatTurnInput(meta *chatSessionMeta, memory *chatSessionMemory, entrie
 	if len(operational) > 0 {
 		lines = append(lines, operational...)
 	}
+	if runtimeRules := buildChatRuntimeRules(meta); runtimeRules != "" {
+		lines = append(lines, runtimeRules)
+	}
 	if workingSet := buildChatWorkingSetBlock(memory); workingSet != "" {
 		lines = append(lines, workingSet)
 	}

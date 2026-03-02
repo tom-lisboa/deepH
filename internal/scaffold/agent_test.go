@@ -16,6 +16,8 @@ func TestRenderGuideStarterTemplatePrefersDeepHCommands(t *testing.T) {
 		"Prefer deeph-native commands over generic shell commands",
 		"resolve it in favor of the deeph CLI first",
 		"For crew examples on PowerShell, prefer crew:name instead of @name.",
+		"do not tell them to run deeph chat again",
+		"Never invent commands such as `deeph agent:run`",
 		"  - command_doc",
 	} {
 		if !strings.Contains(got, want) {

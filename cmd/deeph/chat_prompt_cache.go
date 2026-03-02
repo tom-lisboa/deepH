@@ -48,6 +48,9 @@ func buildChatTurnInputCached(meta *chatSessionMeta, memory *chatSessionMemory, 
 	if operationalBlock != "" {
 		lines = append(lines, operationalBlock)
 	}
+	if runtimeRules := buildChatRuntimeRules(meta); runtimeRules != "" {
+		lines = append(lines, runtimeRules)
+	}
 	if workingSetBlock != "" {
 		lines = append(lines, workingSetBlock)
 	}

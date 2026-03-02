@@ -115,6 +115,7 @@ func (s *chatSessionActorState) processLine(line string) chatSessionActorTurnRes
 	}
 	if route.Kind == chatRouteHandled {
 		if len(route.Replies) > 0 {
+			route.Replies = sanitizeChatReplies(s.meta, route.Replies)
 			printChatReplies(route.Replies)
 			before := len(s.entries)
 			persistChatTurn(s.cfg.Workspace, s.meta, &s.entries, line, route.Replies)
@@ -162,6 +163,7 @@ func (s *chatSessionActorState) processLine(line string) chatSessionActorTurnRes
 		fmt.Println("assistant> (no output)")
 		return chatSessionActorTurnResult{}
 	}
+	replies = sanitizeChatReplies(s.meta, replies)
 	printChatReplies(replies)
 	if s.cfg.ShowCoach && s.meta.Turns == 0 {
 		maybePrintCoachPostRunHint(s.cfg.Workspace, "chat", &s.cfg.Plan, report)

@@ -241,9 +241,6 @@ func renderChatRichText(body string) string {
 				continue
 			}
 			prefix := uiMuted("  |")
-			if strings.HasPrefix(trimmed, "deeph ") {
-				prefix = uiAccent("  $")
-			}
 			out = append(out, prefix+" "+trimmed)
 		case trimmed == "":
 			out = append(out, "")
