@@ -374,17 +374,19 @@ var docs = []Doc{
 	{
 		Path:     "crud init",
 		Category: "crud",
-		Summary:  "Initialize the opinionated CRUD starter (Go backend, Next.js frontend, Postgres, multiverse crew)",
+		Summary:  "Initialize the opinionated CRUD starter and save a workspace CRUD profile",
 		Usage: []string{
-			"deeph crud init [--workspace DIR] [--force] [--provider-name NAME] [--model MODEL] [--set-default-provider] [--skip-provider]",
+			"deeph crud init [--workspace DIR] [--force] [--provider-name NAME] [--model MODEL] [--set-default-provider] [--skip-provider] [--mode backend|fullstack] [--db-kind relational|document] [--db postgres|mongodb] [--entity NAME] [--fields nome:text,cidade:text] [--containers=true|false]",
 		},
 		Examples: []string{
 			"deeph crud init",
 			"deeph crud init --workspace ./futebol",
+			"deeph crud init --workspace ./futebol --mode fullstack --db-kind relational --db postgres --entity players --fields nome:text,posicao:text,time_id:int",
 		},
 		Notes: []string{
 			"Bootstraps the workspace if needed and installs the `crud-next-multiverse` kit.",
 			"Defaults to Go + Next.js + Postgres as the recommended CRUD stack.",
+			"In interactive terminals, asks about backend-only vs fullstack, relational vs document, entity, fields and local containers, then saves the answers in `.deeph/crud.json`.",
 		},
 	},
 	{
@@ -392,7 +394,7 @@ var docs = []Doc{
 		Category: "crud",
 		Summary:  "Print the opinionated CRUD prompt that will be sent to the multiverse crew",
 		Usage: []string{
-			"deeph crud prompt [--workspace DIR] [--entity NAME] [--fields nome:text,cidade:text] [--db postgres] [--backend go] [--frontend next] [--backend-only]",
+			"deeph crud prompt [--workspace DIR] [--entity NAME] [--fields nome:text,cidade:text] [--db-kind relational|document] [--db postgres|mongodb] [--backend go] [--frontend next] [--backend-only] [--mode backend|fullstack] [--containers=true|false]",
 		},
 		Examples: []string{
 			"deeph crud prompt --entity players --fields nome:text,cidade:text",
@@ -404,14 +406,15 @@ var docs = []Doc{
 		Category: "crud",
 		Summary:  "Trace the CRUD multiverse run using the opinionated Go + Next + Postgres defaults",
 		Usage: []string{
-			"deeph crud trace [--workspace DIR] [--entity NAME] [--fields nome:text,cidade:text] [--db postgres] [--backend go] [--frontend next] [--backend-only]",
+			"deeph crud trace [--workspace DIR] [--entity NAME] [--fields nome:text,cidade:text] [--db-kind relational|document] [--db postgres|mongodb] [--backend go] [--frontend next] [--backend-only] [--mode backend|fullstack] [--containers=true|false]",
 		},
 		Examples: []string{
 			"deeph crud trace --entity people --fields nome:text,cidade:text",
 			"deeph crud trace --workspace ./futebol --entity players --fields nome:text,posicao:text,time_id:int",
 		},
 		Notes: []string{
-			"Runs `deeph trace --multiverse 0 crew:crud_fullstack_multiverse ...` with a generated CRUD prompt.",
+			"Chooses the CRUD crew from the saved CRUD profile or from explicit flags (`crud_backend_relational`, `crud_fullstack_relational`, `crud_backend_document`, `crud_fullstack_document`).",
+			"`--mode` lets the user switch between backend-only and fullstack without rewriting the saved profile by hand.",
 		},
 	},
 	{
@@ -419,15 +422,16 @@ var docs = []Doc{
 		Category: "crud",
 		Summary:  "Run the CRUD multiverse crew with the opinionated Go + Next + Postgres defaults",
 		Usage: []string{
-			"deeph crud run [--workspace DIR] [--entity NAME] [--fields nome:text,cidade:text] [--db postgres] [--backend go] [--frontend next] [--backend-only]",
+			"deeph crud run [--workspace DIR] [--entity NAME] [--fields nome:text,cidade:text] [--db-kind relational|document] [--db postgres|mongodb] [--backend go] [--frontend next] [--backend-only] [--mode backend|fullstack] [--containers=true|false]",
 		},
 		Examples: []string{
 			"deeph crud run --entity people --fields nome:text,cidade:text",
 			"deeph crud run --workspace ./futebol --entity players --fields nome:text,posicao:text,time_id:int",
 		},
 		Notes: []string{
-			"Runs `deeph run --multiverse 0 crew:crud_fullstack_multiverse ...` with a generated CRUD prompt.",
+			"Chooses the CRUD crew from the saved CRUD profile or from explicit flags (`crud_backend_relational`, `crud_fullstack_relational`, `crud_backend_document`, `crud_fullstack_document`).",
 			"Use `--backend-only` when you want just the Go API and infra without generating Next.js pages.",
+			"`--containers=false` lets the user ask for local startup without Docker Compose in the generated prompt.",
 		},
 	},
 	{
