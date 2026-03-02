@@ -37,7 +37,7 @@ func cmdStudio(args []string) error {
 	}
 
 	for {
-		printStudioScreen(currentWorkspace)
+		printStudioScreen(currentWorkspace, state)
 		choice, err := promptLine(reader, "Select option", "")
 		if err != nil {
 			return err
@@ -46,32 +46,54 @@ func cmdStudio(args []string) error {
 
 		var runErr error
 		switch choice {
-		case "1":
-			currentWorkspace, runErr = studioQuickstart(reader, state, currentWorkspace, true)
+		case "1", "r", "resume":
+			currentWorkspace, runErr = studioQuickResume(reader, state, currentWorkspace)
 		case "2":
-			currentWorkspace, runErr = studioQuickstart(reader, state, currentWorkspace, false)
+			currentWorkspace, runErr = studioQuickstart(reader, state, currentWorkspace, true)
 		case "3":
-			currentWorkspace, runErr = studioProviderAdd(reader, currentWorkspace)
+			currentWorkspace, runErr = studioQuickstart(reader, state, currentWorkspace, false)
 		case "4":
-			currentWorkspace, runErr = studioAgentCreate(reader, state, currentWorkspace)
+			currentWorkspace, runErr = studioProviderAdd(reader, currentWorkspace)
 		case "5":
-			currentWorkspace, runErr = studioValidate(reader, currentWorkspace)
+			currentWorkspace, runErr = studioAgentCreate(reader, state, currentWorkspace)
 		case "6":
-			currentWorkspace, runErr = studioRun(reader, state, currentWorkspace)
+			currentWorkspace, runErr = studioValidate(reader, currentWorkspace)
 		case "7":
-			currentWorkspace, runErr = studioChat(reader, state, currentWorkspace)
+			currentWorkspace, runErr = studioReview(reader, currentWorkspace)
 		case "8":
-			runErr = studioCommandList(reader)
+			currentWorkspace, runErr = studioRun(reader, state, currentWorkspace)
 		case "9":
-			runErr = studioUpdate(reader)
+			currentWorkspace, runErr = studioChat(reader, state, currentWorkspace)
 		case "10":
-			printUsage()
+			currentWorkspace, runErr = studioSwitchWorkspace(reader, state, currentWorkspace)
 		case "11":
 			printStudioDoctor(currentWorkspace)
 		case "12":
-			currentWorkspace, runErr = studioCalculatorStarter(reader, state, currentWorkspace)
+			runErr = studioCommandList(reader)
 		case "13":
+			runErr = studioUpdate(reader)
+		case "14":
+			currentWorkspace, runErr = studioCalculatorStarter(reader, state, currentWorkspace)
+		case "15":
+			printUsage()
+		case "doctor":
+			printStudioDoctor(currentWorkspace)
+		case "review":
+			currentWorkspace, runErr = studioReview(reader, currentWorkspace)
+		case "chat":
+			currentWorkspace, runErr = studioChat(reader, state, currentWorkspace)
+		case "run":
+			currentWorkspace, runErr = studioRun(reader, state, currentWorkspace)
+		case "switch", "workspace":
 			currentWorkspace, runErr = studioSwitchWorkspace(reader, state, currentWorkspace)
+		case "update":
+			runErr = studioUpdate(reader)
+		case "commands", "command":
+			runErr = studioCommandList(reader)
+		case "calc", "calculator":
+			currentWorkspace, runErr = studioCalculatorStarter(reader, state, currentWorkspace)
+		case "help":
+			printUsage()
 		case "0", "q", "quit", "exit":
 			fmt.Println("Bye.")
 			return nil
@@ -94,8 +116,9 @@ func cmdStudio(args []string) error {
 	}
 }
 
-func printStudioScreen(workspace string) {
+func printStudioScreen(workspace string, state *studioState) {
 	status := collectStudioStatus(workspace)
+	resume := buildStudioQuickResumePlan(status, state)
 	fmt.Print("\033[2J\033[H")
 	printStudioTitle()
 	fmt.Println(uiSectionTitle("Workspace"))
@@ -123,26 +146,140 @@ func printStudioScreen(workspace string) {
 		fmt.Printf("%s %d | %s %d | %s %d | %s %d\n", uiMuted("agents:"), status.Agents, uiMuted("skills:"), status.Skills, uiMuted("sessions:"), status.Sessions, uiMuted("validation:"), status.ValidationIssues)
 	}
 	fmt.Println("")
-	fmt.Println(uiSectionTitle("Actions"))
-	fmt.Println(formatStudioOption("1", "Quickstart (DeepSeek)"))
-	fmt.Println(formatStudioOption("2", "Quickstart (local mock)"))
-	fmt.Println(formatStudioOption("3", "Provider add (DeepSeek)"))
-	fmt.Println(formatStudioOption("4", "Agent create"))
-	fmt.Println(formatStudioOption("5", "Validate workspace"))
-	fmt.Println(formatStudioOption("6", "Run once"))
-	fmt.Println(formatStudioOption("7", "Chat"))
-	fmt.Println(formatStudioOption("8", "Command dictionary"))
-	fmt.Println(formatStudioOption("9", "Update deeph"))
-	fmt.Println(formatStudioOption("10", "Help"))
+	fmt.Println(uiSectionTitle("Quick Resume"))
+	fmt.Println(formatStudioOption("1", "Quick Resume"))
+	if resume.Available {
+		fmt.Printf("%s %s\n", uiMuted("next:"), resume.Detail)
+	} else {
+		fmt.Printf("%s %s\n", uiMuted("next:"), resume.Reason)
+	}
+	fmt.Printf("%s %s\n", uiMuted("recommended:"), studioRecommendedAction(status, resume))
+	fmt.Println("")
+	fmt.Println(uiSectionTitle("Start"))
+	fmt.Println(formatStudioOption("2", "Quickstart (DeepSeek)"))
+	fmt.Println(formatStudioOption("3", "Quickstart (local mock)"))
+	fmt.Println("")
+	fmt.Println(uiSectionTitle("Build"))
+	fmt.Println(formatStudioOption("4", "Provider add (DeepSeek)"))
+	fmt.Println(formatStudioOption("5", "Agent create"))
+	fmt.Println(formatStudioOption("6", "Validate workspace"))
+	fmt.Println("")
+	fmt.Println(uiSectionTitle("Review"))
+	fmt.Println(formatStudioOption("7", "Review current changes"))
+	fmt.Println("")
+	fmt.Println(uiSectionTitle("Operate"))
+	fmt.Println(formatStudioOption("8", "Run once"))
+	fmt.Println(formatStudioOption("9", "Chat"))
+	fmt.Println(formatStudioOption("10", "Switch workspace"))
+	fmt.Println("")
+	fmt.Println(uiSectionTitle("Advanced"))
 	fmt.Println(formatStudioOption("11", "Studio doctor"))
-	fmt.Println(formatStudioOption("12", "Calculator workspace"))
-	fmt.Println(formatStudioOption("13", "Switch workspace"))
+	fmt.Println(formatStudioOption("12", "Command dictionary"))
+	fmt.Println(formatStudioOption("13", "Update deeph"))
+	fmt.Println(formatStudioOption("14", "Calculator workspace"))
+	fmt.Println(formatStudioOption("15", "Help"))
 	fmt.Println(formatStudioOption("0", "Exit"))
 	fmt.Println("")
 	fmt.Println(uiSectionTitle("Tips"))
-	fmt.Printf("%s %s\n", uiMuted("-"), "Use option 7 for iterative chat and option 11 for environment diagnostics.")
-	fmt.Printf("%s %s\n", uiMuted("-"), "Keep providers and agents clean with option 5 before larger runs.")
+	fmt.Printf("%s %s\n", uiMuted("-"), "Use option 1 to jump back into the last chat, or option 7 to review the current diff.")
+	fmt.Printf("%s %s\n", uiMuted("-"), "Keep providers and agents clean with option 6 before larger runs.")
 	fmt.Println("")
+}
+
+type studioQuickResumePlan struct {
+	Workspace string
+	Spec      string
+	SessionID string
+	Detail    string
+	Reason    string
+	Available bool
+}
+
+func buildStudioQuickResumePlan(status studioStatus, state *studioState) studioQuickResumePlan {
+	plan := studioQuickResumePlan{Workspace: status.Workspace}
+	if !status.Initialized {
+		plan.Reason = "Workspace is not initialized yet."
+		return plan
+	}
+	if strings.TrimSpace(status.LoadError) != "" {
+		plan.Reason = "Workspace has a load error. Run Studio doctor."
+		return plan
+	}
+	sameWorkspace := state != nil && samePath(strings.TrimSpace(state.LastWorkspace), status.Workspace)
+	spec := strings.TrimSpace(status.LatestAgentSpec)
+	if spec == "" && sameWorkspace {
+		spec = strings.TrimSpace(state.LastAgentSpec)
+	}
+	if spec == "" {
+		spec = "guide"
+	}
+	sessionID := strings.TrimSpace(status.LatestSession)
+	if sessionID == "" && sameWorkspace {
+		sessionID = strings.TrimSpace(state.LastSessionID)
+	}
+	plan.Spec = spec
+	plan.SessionID = sessionID
+	plan.Available = true
+	if sessionID != "" {
+		plan.Detail = fmt.Sprintf("Resume chat `%s` with `%s`.", sessionID, spec)
+		return plan
+	}
+	plan.Detail = fmt.Sprintf("Start chat with `%s` in `%s`.", spec, filepath.Base(status.Workspace))
+	return plan
+}
+
+func studioRecommendedAction(status studioStatus, resume studioQuickResumePlan) string {
+	switch {
+	case !status.Initialized:
+		return "Create a DeepSeek workspace."
+	case strings.TrimSpace(status.LoadError) != "":
+		return "Run Studio doctor."
+	case status.DefaultProvider == "":
+		return "Add a provider."
+	case status.APIKeyEnv != "" && !status.APIKeySet:
+		return "Set " + status.APIKeyEnv + " in this shell."
+	case status.ValidationErrors > 0:
+		return "Validate and fix workspace errors."
+	case resume.Available:
+		return resume.Detail
+	case status.Sessions == 0:
+		return "Start the first chat."
+	default:
+		return "Review current changes."
+	}
+}
+
+func studioQuickResume(reader *bufio.Reader, state *studioState, defaultWorkspace string) (string, error) {
+	ws := defaultWorkspace
+	var err error
+	if !workspaceInitialized(ws) {
+		ws, err = promptWorkspace(reader, defaultWorkspace)
+		if err != nil {
+			return defaultWorkspace, err
+		}
+	}
+	if err := requireInitializedWorkspace(ws); err != nil {
+		return defaultWorkspace, err
+	}
+	plan := buildStudioQuickResumePlan(collectStudioStatus(ws), state)
+	if !plan.Available {
+		return ws, errors.New(plan.Reason)
+	}
+	args := []string{"--workspace", ws}
+	if strings.TrimSpace(plan.SessionID) != "" {
+		args = append(args, "--session", plan.SessionID)
+	}
+	args = append(args, plan.Spec)
+	if err := cmdChat(args); err != nil {
+		return ws, err
+	}
+	if state != nil {
+		state.LastAgentSpec = plan.Spec
+		if strings.TrimSpace(plan.SessionID) != "" {
+			state.LastSessionID = plan.SessionID
+		}
+	}
+	return ws, nil
 }
 
 func studioQuickstart(reader *bufio.Reader, state *studioState, defaultWorkspace string, deepseek bool) (string, error) {
@@ -322,6 +459,32 @@ func studioChat(reader *bufio.Reader, state *studioState, defaultWorkspace strin
 		state.LastSessionID = sessionID
 	}
 	return ws, nil
+}
+
+func studioReview(reader *bufio.Reader, defaultWorkspace string) (string, error) {
+	ws, err := promptWorkspace(reader, defaultWorkspace)
+	if err != nil {
+		return defaultWorkspace, err
+	}
+	if err := requireInitializedWorkspace(ws); err != nil {
+		return defaultWorkspace, err
+	}
+	focus, err := promptLine(reader, "Review focus (optional)", "")
+	if err != nil {
+		return ws, err
+	}
+	trace, err := promptYesNo(reader, "Show trace first?", false)
+	if err != nil {
+		return ws, err
+	}
+	args := []string{"--workspace", ws}
+	if trace {
+		args = append(args, "--trace")
+	}
+	if strings.TrimSpace(focus) != "" {
+		args = append(args, focus)
+	}
+	return ws, cmdReview(args)
 }
 
 func studioCommandList(reader *bufio.Reader) error {

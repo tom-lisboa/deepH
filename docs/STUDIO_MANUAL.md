@@ -39,9 +39,21 @@ Ele existe para facilitar o fluxo mais comum:
 - configurar provider
 - criar agent
 - validar o projeto
+- revisar mudancas locais
 - rodar um agent uma vez
 - abrir chat
 - trocar de workspace
+
+No menu principal mais novo, essas acoes aparecem agrupadas por fluxo:
+
+- `Quick Resume`
+- `Start`
+- `Build`
+- `Review`
+- `Operate`
+- `Advanced`
+
+Isso reduz a carga cognitiva e deixa a retomada mais rapida.
 
 Se voce rodar `deeph` num terminal interativo, ele abre o `studio` por padrao.
 
@@ -56,6 +68,8 @@ Ou apontando para uma pasta especifica:
 ```bash
 deeph studio --workspace ./meu-workspace
 ```
+
+Quando o workspace ja esta pronto, a primeira acao util tende a ser `Quick Resume`, que tenta reabrir a ultima conversa relevante sem obrigar voce a preencher tudo de novo.
 
 ## O que e um workspace
 
