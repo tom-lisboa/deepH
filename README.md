@@ -11,6 +11,8 @@ The core idea is simple:
 
 This is not a locked app with baked-in agents.
 It is an engine that loads your agents.
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/7a45e768-d33a-4eb6-8269-3f0322a627ae" />
+
 
 ## Why this is different
 
