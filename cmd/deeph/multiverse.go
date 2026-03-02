@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"deeph/internal/project"
+	"deeph/internal/reviewfindings"
 	"deeph/internal/runtime"
 	"deeph/internal/typesys"
 )
@@ -463,6 +464,7 @@ func buildMultiverseUniverseInput(u multiverseUniverse, mvPlan *multiverseOrches
 				lines = append(lines, "      error: "+quoteYAMLInline(s.Error))
 				continue
 			}
+			lines = appendParsedReviewFindings(lines, "      ", s.Text)
 			text := multiverseNormalizeJudgeSinkText(strings.TrimSpace(s.Text), h.MaxChars)
 			lines = append(lines, "      text: |")
 			for _, ln := range strings.Split(text, "\n") {
@@ -910,6 +912,81 @@ func quoteYAMLInline(s string) string {
 	s = strings.ReplaceAll(s, `\`, `\\`)
 	s = strings.ReplaceAll(s, `"`, `\"`)
 	return `"` + s + `"`
+}
+
+func appendParsedReviewFindings(lines []string, indent string, raw string) []string {
+	report, ok := reviewfindings.Parse(raw)
+	if !ok || report == nil {
+		return lines
+	}
+	baseIndent := indent
+	listIndent := indent + "  "
+	itemIndent := listIndent + "  "
+	lines = append(lines, baseIndent+"parsed_findings:")
+	switch {
+	case len(report.Findings) > 0:
+		lines = append(lines, listIndent+"status: findings")
+	case report.NoIssues:
+		lines = append(lines, listIndent+"status: no_issues")
+	default:
+		lines = append(lines, listIndent+"status: summary")
+	}
+	if report.Summary != "" {
+		lines = append(lines, listIndent+"summary: "+quoteYAMLInline(clipLine(report.Summary, 220)))
+	}
+	if len(report.Findings) > 0 {
+		lines = append(lines, listIndent+"findings:")
+		for _, f := range limitParsedFindings(report.Findings, 3) {
+			lines = append(lines, itemIndent+"- severity: "+quoteYAMLInline(defaultString(f.Severity, "unspecified")))
+			if strings.TrimSpace(f.File) != "" {
+				lines = append(lines, itemIndent+"  file: "+quoteYAMLInline(clipLine(f.File, 120)))
+			}
+			if strings.TrimSpace(f.Title) != "" {
+				lines = append(lines, itemIndent+"  title: "+quoteYAMLInline(clipLine(f.Title, 180)))
+			}
+			if strings.TrimSpace(f.Impact) != "" {
+				lines = append(lines, itemIndent+"  impact: "+quoteYAMLInline(clipLine(f.Impact, 220)))
+			}
+			if strings.TrimSpace(f.Evidence) != "" {
+				lines = append(lines, itemIndent+"  evidence: "+quoteYAMLInline(clipLine(f.Evidence, 220)))
+			}
+		}
+	}
+	if len(report.ResidualRisks) > 0 {
+		lines = append(lines, listIndent+"residual_risks:")
+		for _, risk := range limitStrings(report.ResidualRisks, 3) {
+			lines = append(lines, itemIndent+"- "+quoteYAMLInline(clipLine(risk, 220)))
+		}
+	}
+	return lines
+}
+
+func limitParsedFindings(in []reviewfindings.Finding, maxCount int) []reviewfindings.Finding {
+	if len(in) == 0 {
+		return nil
+	}
+	if maxCount <= 0 || len(in) <= maxCount {
+		return in
+	}
+	return in[:maxCount]
+}
+
+func limitStrings(in []string, maxCount int) []string {
+	if len(in) == 0 {
+		return nil
+	}
+	if maxCount <= 0 || len(in) <= maxCount {
+		return in
+	}
+	return in[:maxCount]
+}
+
+func defaultString(s, fallback string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return fallback
+	}
+	return s
 }
 
 func multiverseNormalizeJudgeSinkText(s string, maxChars int) string {

@@ -6,6 +6,16 @@ system_prompt: |
   Findings come first.
   Prioritize bugs, behavioral regressions, missing tests, concurrency hazards, nil and pointer mistakes, API drift, resource leaks, cancellation mistakes and risky assumptions.
   Cite concrete file paths and explain impact.
+  Prefer a compact structured output shape:
+  Findings:
+  - severity: high|medium|low
+    file: relative/path
+    title: short finding
+    impact: one sentence
+    evidence: optional
+  Residual Risks:
+  - short risk
+  If no convincing issue exists, say `no_issues: true` and explain residual risks or testing gaps.
   Be skeptical of weak evidence.
   If you do not find a convincing issue, say that explicitly and mention residual risks or testing gaps.
 metadata:

@@ -151,6 +151,7 @@ func BuildInput(scope Scope, focus string, cfg Config) string {
 		p.addLine("review_focus: " + trimFocusLine(focus, 220))
 	}
 	p.addLine("instruction: findings first. prioritize bugs, regressions, missing tests, concurrency, context cancellation, nil/pointer mistakes, API drift, resource leaks, and risky assumptions. cite file paths and explain impact. if no issues, say that explicitly and mention residual risks.")
+	p.addLine("preferred_output: use compact structured sections when practical. findings should include severity, file, title, impact, and optional evidence. if no convincing issue exists, say `no_issues: true` and list residual risks or testing gaps.")
 	p.addLine("changed:")
 	for _, file := range scope.DiffFiles {
 		line := fmt.Sprintf("- %s %s +%d -%d hunks=%d", file.Status, file.Path, file.Added, file.Deleted, len(file.Hunks))

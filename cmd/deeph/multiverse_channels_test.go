@@ -114,3 +114,51 @@ func TestBuildMultiverseUniverseInputLatestMergeKeepsOne(t *testing.T) {
 		t.Fatalf("latest merge should keep only last dependency contribution, got:\n%s", input)
 	}
 }
+
+func TestBuildMultiverseUniverseInputAddsParsedReviewFindings(t *testing.T) {
+	universes := []multiverseUniverse{
+		{ID: "u1", Label: "baseline", Spec: "reviewer", Index: 0, OutputPort: "result", OutputKind: "summary/text"},
+		{ID: "u2", Label: "synth", Spec: "review_synth", Index: 1, DependsOn: []string{"u1"}, InputPort: "context", MergePolicy: "append", HandoffMaxChars: 120},
+	}
+	mv, err := planMultiverseOrchestration(universes)
+	if err != nil {
+		t.Fatalf("plan error: %v", err)
+	}
+	done := []bool{true, false}
+	branches := []multiverseRunBranch{
+		{
+			Universe: universes[0],
+			Report: runtime.ExecutionReport{
+				Results: []runtime.AgentRunResult{{
+					Agent:      "reviewer",
+					StageIndex: 0,
+					Output: `
+Findings:
+- severity: high
+  file: cmd/deeph/review.go
+  title: Explicit --spec reviewer still triggers builtin fallback
+  impact: Prevents a direct single-agent review when requested.
+
+Residual Risks:
+- No live-provider end-to-end test yet.
+`,
+				}},
+			},
+		},
+	}
+	input, _, _, contribs := buildMultiverseUniverseInput(universes[1], mv, done, branches)
+	if contribs != 1 {
+		t.Fatalf("expected 1 contribution, got %d", contribs)
+	}
+	for _, want := range []string{
+		"parsed_findings:",
+		`status: findings`,
+		`file: "cmd/deeph/review.go"`,
+		`title: "Explicit --spec reviewer still triggers builtin fallback"`,
+		`residual_risks:`,
+	} {
+		if !strings.Contains(input, want) {
+			t.Fatalf("expected compiled input to contain %q, got:\n%s", want, input)
+		}
+	}
+}
