@@ -8,13 +8,16 @@ import (
 	"deeph/internal/commanddoc"
 )
 
-func maybeAnswerGuideLocally(meta *chatSessionMeta, userMessage string) (string, bool) {
+func maybeAnswerGuideLocally(workspace string, meta *chatSessionMeta, userMessage string) (string, bool) {
 	if meta == nil || !strings.EqualFold(strings.TrimSpace(meta.AgentSpec), "guide") {
 		return "", false
 	}
 	norm := normalizeChatLookupText(userMessage)
 	if !localGuideLooksOperational(norm) {
 		return "", false
+	}
+	if out, ok := maybeAnswerGuideOperational(workspace, meta, userMessage); ok {
+		return out, true
 	}
 	if out, ok := localGuideRecipeReply(norm); ok {
 		return out, true
@@ -29,10 +32,10 @@ func localGuideLooksOperational(norm string) bool {
 	if norm == "" {
 		return false
 	}
-	if containsAny(norm, "deeph", "workspace", "quickstart", "provider", "deepseek", "agent", "crew", "multiverse", "skill", "validate", "trace", "chat", "session", "kit", "backend", "crud", "graphql", "graph ql", "docker", "compose", "container") {
+	if containsAny(norm, "deeph", "workspace", "quickstart", "provider", "deepseek", "agent", "crew", "multiverse", "skill", "validate", "trace", "chat", "session", "kit", "backend", "crud", "graphql", "graph ql", "docker", "compose", "container", "saas", "projeto", "app", "produto") {
 		return true
 	}
-	if containsAny(norm, "qual comando", "quais comandos", "como eu", "como faco", "como faço", "como uso", "como criar", "como rodar", "como configuro", "como configurar", "o que eu uso") {
+	if containsAny(norm, "qual comando", "quais comandos", "como eu", "como faco", "como faço", "como uso", "como criar", "como rodar", "como configuro", "como configurar", "o que eu uso", "proximo passo", "próximo passo", "como comeco", "como começo") {
 		return true
 	}
 	return false

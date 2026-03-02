@@ -98,7 +98,7 @@ func cmdChat(args []string) error {
 			}
 			continue
 		}
-		if localText, ok := maybeAnswerGuideLocally(meta, line); ok {
+		if localText, ok := maybeAnswerGuideLocally(abs, meta, line); ok {
 			replies := []chatReply{{Agent: meta.AgentSpec, Text: localText}}
 			printChatReplies(replies)
 			persistChatTurn(abs, meta, &entries, line, replies)

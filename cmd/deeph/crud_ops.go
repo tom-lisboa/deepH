@@ -365,7 +365,10 @@ func scoreCRUDComposeCandidate(rel, base string) int {
 }
 
 func findCRUDSmokeScript(workspace, composeFile, goos string) (string, bool) {
-	dirs := orderedUniqueStrings(workspace, filepath.Dir(strings.TrimSpace(composeFile)))
+	dirs := []string{workspace}
+	if composePath := strings.TrimSpace(composeFile); composePath != "" {
+		dirs = orderedUniqueStrings(workspace, filepath.Dir(composePath))
+	}
 	for _, dir := range dirs {
 		if strings.TrimSpace(dir) == "" {
 			continue

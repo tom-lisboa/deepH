@@ -7,40 +7,40 @@ import (
 
 func TestMaybeAnswerGuideLocallyBackendRecipe(t *testing.T) {
 	meta := &chatSessionMeta{ID: "s1", AgentSpec: "guide"}
+	ws := t.TempDir()
 
-	got, ok := maybeAnswerGuideLocally(meta, "qual comando eu uso para criar um beck end ? do meu projeto de futebol")
+	got, ok := maybeAnswerGuideLocally(ws, meta, "qual comando eu uso para criar um beck end ? do meu projeto de futebol")
 	if !ok {
 		t.Fatalf("expected local guide answer")
 	}
 	for _, want := range []string{
-		"Hoje nao existe `deeph create backend`",
-		"deeph crud init",
-		"deeph crud trace --backend-only",
-		"deeph crud run --backend-only",
+		"Comando agora:",
+		"deeph crud init --workspace . --mode backend",
+		"O que vai acontecer:",
+		"Proximo passo:",
+		"deeph crud run --workspace .",
 		"deeph crud up",
 		"deeph crud smoke",
-		"projeto de futebol",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("expected local guide answer to contain %q, got:\n%s", want, got)
 		}
 	}
-	if strings.Contains(got, "deeph create backend") && !strings.Contains(got, "Hoje nao existe `deeph create backend`") {
-		t.Fatalf("unexpected hallucinated create backend command in:\n%s", got)
-	}
 }
 
 func TestMaybeAnswerGuideLocallyDockerRecipe(t *testing.T) {
 	meta := &chatSessionMeta{ID: "s4", AgentSpec: "guide"}
+	ws := t.TempDir()
 
-	got, ok := maybeAnswerGuideLocally(meta, "como eu subo os containers docker do meu crud?")
+	got, ok := maybeAnswerGuideLocally(ws, meta, "como eu subo os containers docker do meu crud?")
 	if !ok {
 		t.Fatalf("expected local guide docker answer")
 	}
 	for _, want := range []string{
+		"Comando agora:",
+		"deeph crud init --workspace .",
+		"deeph crud run --workspace .",
 		"deeph crud up",
-		"deeph crud smoke",
-		"deeph crud down",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("expected docker answer to contain %q, got:\n%s", want, got)
@@ -50,8 +50,9 @@ func TestMaybeAnswerGuideLocallyDockerRecipe(t *testing.T) {
 
 func TestMaybeAnswerGuideLocallyProviderRecipe(t *testing.T) {
 	meta := &chatSessionMeta{ID: "s2", AgentSpec: "guide"}
+	ws := t.TempDir()
 
-	got, ok := maybeAnswerGuideLocally(meta, "como configuro o deepseek aqui?")
+	got, ok := maybeAnswerGuideLocally(ws, meta, "como configuro o deepseek aqui?")
 	if !ok {
 		t.Fatalf("expected local guide provider answer")
 	}
@@ -68,8 +69,9 @@ func TestMaybeAnswerGuideLocallyProviderRecipe(t *testing.T) {
 
 func TestMaybeAnswerGuideLocallySkipsNonGuide(t *testing.T) {
 	meta := &chatSessionMeta{ID: "s3", AgentSpec: "coder"}
+	ws := t.TempDir()
 
-	if got, ok := maybeAnswerGuideLocally(meta, "como configuro o deepseek?"); ok || got != "" {
+	if got, ok := maybeAnswerGuideLocally(ws, meta, "como configuro o deepseek?"); ok || got != "" {
 		t.Fatalf("did not expect local guide answer for non-guide agent, got %q", got)
 	}
 }
