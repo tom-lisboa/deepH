@@ -102,9 +102,41 @@ Notes:
 - Use a real DeepSeek key; placeholders like `sk-CHAVE_NOVA_REAL` will return 401.
 - Update binary any time with `deeph update`.
 
+## Quick CRUD
+
+If your goal is to generate a CRUD with the opinionated product flow, use:
+
+```bash
+deeph crud init --workspace ./meu-crud
+deeph crud run --workspace ./meu-crud
+deeph crud up --workspace ./meu-crud
+deeph crud smoke --workspace ./meu-crud
+```
+
+This flow defaults to:
+
+- `Go` for backend
+- `Next.js` for frontend when the mode is `fullstack`
+- `Postgres` for relational CRUDs
+
+Detailed guide:
+
+- [CRUD com deepH](docs/CRUD.md)
+
 ## Guided Walkthroughs
 
 - [Studio, Workspace e Chat no deepH](docs/STUDIO_MANUAL.md)
+- [CRUD com deepH](docs/CRUD.md)
+- [Stack opinativa do CRUD](docs/CRUD.md#stack-opinativa)
+- [Fluxo recomendado](docs/CRUD.md#fluxo-recomendado)
+- [Inicializar o workspace CRUD](docs/CRUD.md#1-inicializar-o-workspace-crud)
+- [Inspecionar o plano antes de gerar](docs/CRUD.md#2-inspecionar-o-plano-antes-de-gerar)
+- [Gerar o CRUD](docs/CRUD.md#3-gerar-o-crud)
+- [Subir o ambiente local](docs/CRUD.md#4-subir-o-ambiente-local)
+- [Validar o CRUD](docs/CRUD.md#5-validar-o-crud)
+- [Derrubar o ambiente](docs/CRUD.md#6-derrubar-o-ambiente)
+- [Windows PowerShell](docs/CRUD.md#windows-powershell)
+- [Troubleshooting rapido](docs/CRUD.md#troubleshooting-rapido)
 - [O que e o studio](docs/STUDIO_MANUAL.md#o-que-e-o-studio)
 - [O que e um workspace](docs/STUDIO_MANUAL.md#o-que-e-um-workspace)
 - [Criando a pasta do workspace](docs/STUDIO_MANUAL.md#criando-a-pasta-do-workspace)
