@@ -4,17 +4,22 @@ import (
 	"fmt"
 	"path/filepath"
 	goruntime "runtime"
+	"sort"
 	"strings"
+
+	"deeph/internal/project"
 )
 
 type guideOperatorIntent string
 
 const (
-	guideOperatorUnknown  guideOperatorIntent = ""
-	guideOperatorWorkflow guideOperatorIntent = "workflow"
-	guideOperatorUp       guideOperatorIntent = "up"
-	guideOperatorSmoke    guideOperatorIntent = "smoke"
-	guideOperatorDown     guideOperatorIntent = "down"
+	guideOperatorUnknown guideOperatorIntent = ""
+	guideOperatorCRUD    guideOperatorIntent = "crud"
+	guideOperatorUp      guideOperatorIntent = "up"
+	guideOperatorSmoke   guideOperatorIntent = "smoke"
+	guideOperatorDown    guideOperatorIntent = "down"
+	guideOperatorAgent   guideOperatorIntent = "agent"
+	guideOperatorFlow    guideOperatorIntent = "flow"
 )
 
 type guideWorkspaceState struct {
@@ -27,6 +32,8 @@ type guideWorkspaceState struct {
 	SmokeScript     string
 	DockerAvailable bool
 	DockerLabel     string
+	Agents          []string
+	DefaultProvider string
 	LastCommand     string
 	CoachNext       string
 	CoachConfidence int
@@ -38,6 +45,7 @@ type guideProbeResult struct {
 	OK         bool
 	Text       string
 	Text2      string
+	Items      []string
 	Confidence int
 }
 
@@ -75,12 +83,16 @@ func detectGuideOperatorIntent(norm string) guideOperatorIntent {
 		return guideOperatorSmoke
 	case containsAny(norm, "subir", "levantar", "rodar", "iniciar", "start", "up") && containsAny(norm, "crud", "docker", "compose", "container", "api", "backend", "server", "servidor"):
 		return guideOperatorUp
+	case containsAny(norm, "agent", "agente") && containsAny(norm, "criar", "cria", "create", "novo", "new", "montar", "gerar"):
+		return guideOperatorAgent
+	case containsAny(norm, "workflow", "fluxo", "crew", "pipeline", "multiverse", "universo") && containsAny(norm, "criar", "cria", "create", "montar", "fazer", "comecar", "começar", "iniciar"):
+		return guideOperatorFlow
 	case containsAny(norm, "crud", "cadastro"):
-		return guideOperatorWorkflow
+		return guideOperatorCRUD
 	case containsAny(norm, "backend", "beck end", "back end", "api", "servidor"):
-		return guideOperatorWorkflow
+		return guideOperatorCRUD
 	case containsAny(norm, "saas", "app", "projeto", "produto") && containsAny(norm, "como", "comeco", "comeco", "comecar", "começar", "criar", "iniciar", "passo", "agora"):
-		return guideOperatorWorkflow
+		return guideOperatorCRUD
 	default:
 		return guideOperatorUnknown
 	}
@@ -138,6 +150,29 @@ func probeGuideWorkspaceState(workspace string) guideWorkspaceState {
 
 	pending++
 	go func() {
+		agents := listWorkspaceAgentNames(workspace)
+		out := guideProbeResult{Kind: "agents", Items: agents}
+		if state.HasRootConfig {
+			if p, err := project.Load(workspace); err == nil {
+				out.OK = true
+				out.Text = strings.TrimSpace(p.Root.DefaultProvider)
+				if len(p.Agents) > 0 {
+					names := make([]string, 0, len(p.Agents))
+					for _, a := range p.Agents {
+						if name := strings.TrimSpace(a.Name); name != "" {
+							names = append(names, name)
+						}
+					}
+					sort.Strings(names)
+					out.Items = names
+				}
+			}
+		}
+		ch <- out
+	}()
+
+	pending++
+	go func() {
 		st, err := loadCoachState(workspace)
 		if err != nil || st == nil {
 			ch <- guideProbeResult{Kind: "coach"}
@@ -176,6 +211,11 @@ func probeGuideWorkspaceState(workspace string) guideWorkspaceState {
 		case "docker":
 			state.DockerAvailable = res.OK
 			state.DockerLabel = res.Text
+		case "agents":
+			state.Agents = res.Items
+			if res.OK {
+				state.DefaultProvider = res.Text
+			}
 		case "coach":
 			state.LastCommand = res.Text
 			if res.OK {
@@ -195,8 +235,12 @@ func buildGuideOperatorReply(norm string, state guideWorkspaceState, intent guid
 		return buildGuideOperatorSmokeReply(state), true
 	case guideOperatorDown:
 		return buildGuideOperatorDownReply(state), true
-	case guideOperatorWorkflow:
+	case guideOperatorCRUD:
 		return buildGuideOperatorWorkflowReply(norm, state), true
+	case guideOperatorAgent:
+		return buildGuideOperatorAgentReply(norm, state), true
+	case guideOperatorFlow:
+		return buildGuideOperatorFlowReply(state), true
 	default:
 		return guideOperatorReply{}, false
 	}
@@ -256,6 +300,157 @@ func buildGuideOperatorWorkflowReply(norm string, state guideWorkspaceState) gui
 		return buildGuideOperatorDownReply(state)
 	}
 	return buildGuideOperatorUpReply(state)
+}
+
+func buildGuideOperatorAgentReply(norm string, state guideWorkspaceState) guideOperatorReply {
+	name := guideExtractAgentName(norm)
+	if !state.HasRootConfig {
+		next := "deeph agent create --workspace ."
+		if name != "" {
+			next += " " + name
+		} else {
+			next += " <nome-do-agent>"
+		}
+		return guideOperatorReply{
+			Intro: "Antes de criar agents, inicialize o workspace para o `deepH` reconhecer a estrutura do projeto.",
+			Commands: []string{
+				"deeph init --workspace .",
+			},
+			What: []string{
+				"o `deepH` vai criar `deeph.yaml` e a estrutura basica do workspace",
+				"depois disso, o comando `agent create` ja pode escrever o template do agent em `agents/`",
+			},
+			Next: []string{
+				next,
+			},
+			Notes: []string{
+				"Eu nao vou estilizar o YAML no chat. Depois de criar o arquivo, abra-o no VS Code e personalize `system_prompt`, `skills` e `io`.",
+			},
+		}
+	}
+
+	if name == "" {
+		return guideOperatorReply{
+			Intro: "Para criar um agent de forma direta, eu so preciso do nome.",
+			Commands: []string{
+				"deeph agent create --workspace . <nome-do-agent>",
+			},
+			What: []string{
+				"o `deepH` vai criar um template em `agents/<nome-do-agent>.yaml`",
+				"o template nao sera estilizado pelo chat; a ideia e voce abrir o arquivo no VS Code e ajustar o YAML",
+			},
+			Next: []string{
+				"deeph validate --workspace .",
+			},
+			Context: buildGuideOperatorContext(state),
+			Notes: []string{
+				"Se quiser, me diga algo como `cria um agent reviewer` ou `cria um agent backend_builder`.",
+			},
+		}
+	}
+
+	if guideHasAgent(state.Agents, name) {
+		return guideOperatorReply{
+			Intro: fmt.Sprintf("O agent `%s` ja existe neste workspace.", name),
+			Commands: []string{
+				fmt.Sprintf("deeph validate --workspace ."),
+			},
+			What: []string{
+				fmt.Sprintf("o arquivo `agents/%s.yaml` ja deve existir", name),
+				"o passo certo agora e abrir esse YAML no VS Code e personalizar o agent",
+			},
+			Next: []string{
+				fmt.Sprintf("deeph run --workspace . %s \"teste\"", name),
+			},
+			Context: buildGuideOperatorContext(state),
+			Notes: []string{
+				fmt.Sprintf("Depois de editar `agents/%s.yaml`, rode `deeph validate --workspace .`.", name),
+			},
+		}
+	}
+
+	reply := guideOperatorReply{
+		Intro: fmt.Sprintf("O comando certo agora e criar o template do agent `%s`.", name),
+		Commands: []string{
+			fmt.Sprintf("deeph agent create --workspace . %s", name),
+		},
+		What: []string{
+			fmt.Sprintf("o `deepH` vai criar `agents/%s.yaml`", name),
+			"o arquivo sera um template inicial, sem o chat tentar estilizar seu YAML por voce",
+		},
+		Next: []string{
+			"deeph validate --workspace .",
+		},
+		Context: buildGuideOperatorContext(state),
+		Notes: []string{
+			fmt.Sprintf("Depois de criar, abra `agents/%s.yaml` no VS Code e ajuste `system_prompt`, `skills` e `io`.", name),
+		},
+	}
+	if strings.TrimSpace(state.DefaultProvider) == "" {
+		reply.Notes = append(reply.Notes, "Se voce quiser um provider padrao no workspace, configure antes ou depois com `deeph provider add --name deepseek --model deepseek-chat --set-default --force deepseek`.")
+	}
+	return reply
+}
+
+func buildGuideOperatorFlowReply(state guideWorkspaceState) guideOperatorReply {
+	if !state.HasRootConfig {
+		return guideOperatorReply{
+			Intro: "Antes de montar um workflow, inicialize o workspace do `deepH`.",
+			Commands: []string{
+				"deeph init --workspace .",
+			},
+			What: []string{
+				"o `deepH` vai criar a base do workspace",
+				"depois disso, voce pode criar agents e testar workflows inline sem escrever crew YAML ainda",
+			},
+			Next: []string{
+				"deeph agent create --workspace . planner",
+			},
+			Notes: []string{
+				"Para comecar workflows, eu recomendaria criar os primeiros agents antes de pensar em `crews/*.yaml`.",
+			},
+		}
+	}
+
+	if len(state.Agents) < 2 {
+		nextAgent := guideSuggestedNextAgent(state.Agents)
+		return guideOperatorReply{
+			Intro: "Para montar um workflow de verdade, o workspace ainda precisa de mais agents.",
+			Commands: []string{
+				fmt.Sprintf("deeph agent create --workspace . %s", nextAgent),
+			},
+			What: []string{
+				fmt.Sprintf("o `deepH` vai criar `agents/%s.yaml`", nextAgent),
+				"depois disso, voce pode abrir o YAML no VS Code e personalizar o papel desse agent no fluxo",
+			},
+			Next: []string{
+				"deeph validate --workspace .",
+			},
+			Context: buildGuideOperatorContext(state),
+			Notes: []string{
+				"Assim que houver pelo menos dois agents, voce ja pode testar um workflow inline com `trace` e `run`.",
+			},
+		}
+	}
+
+	spec := guideSuggestedWorkflowSpec(state.Agents)
+	return guideOperatorReply{
+		Intro: "Voce ja tem agents suficientes para comecar um workflow sem precisar abrir YAML de crew agora.",
+		Commands: []string{
+			fmt.Sprintf("deeph trace --workspace . %q \"sua tarefa\"", spec),
+		},
+		What: []string{
+			fmt.Sprintf("o `deepH` vai inspecionar o workflow inline `%s`", spec),
+			"voce vai ver stages, canais e handoffs antes de executar o fluxo completo",
+		},
+		Next: []string{
+			fmt.Sprintf("deeph run --workspace . %q \"sua tarefa\"", spec),
+		},
+		Context: buildGuideOperatorContext(state),
+		Notes: []string{
+			"Se depois voce quiser persistir esse fluxo como crew, ai sim vale abrir `crews/*.yaml` no VS Code.",
+		},
+	}
 }
 
 func buildGuideOperatorUpReply(state guideWorkspaceState) guideOperatorReply {
@@ -400,6 +595,9 @@ func guideWantsDocumentDB(norm string) bool {
 
 func buildGuideOperatorContext(state guideWorkspaceState) []string {
 	out := make([]string, 0, 5)
+	if len(state.Agents) > 0 {
+		out = append(out, fmt.Sprintf("%d agent(s) detectado(s): `%s`", len(state.Agents), strings.Join(state.Agents, "`, `")))
+	}
 	if state.HasCRUDProfile {
 		entity := strings.TrimSpace(state.CRUDConfig.Entity)
 		if entity == "" {
@@ -416,10 +614,99 @@ func buildGuideOperatorContext(state guideWorkspaceState) []string {
 	if strings.TrimSpace(state.LastCommand) != "" {
 		out = append(out, fmt.Sprintf("ultimo comando observado pelo coach: `%s`", state.LastCommand))
 	}
+	if strings.TrimSpace(state.DefaultProvider) != "" {
+		out = append(out, fmt.Sprintf("default_provider detectado: `%s`", state.DefaultProvider))
+	}
 	if strings.TrimSpace(state.CoachNext) != "" {
 		out = append(out, fmt.Sprintf("padrao local: o proximo passo costuma ser `%s` (%d%%)", state.CoachNext, state.CoachConfidence))
 	}
 	return out
+}
+
+func guideExtractAgentName(norm string) string {
+	tokens := strings.Fields(norm)
+	for i := 0; i < len(tokens); i++ {
+		tok := strings.TrimSpace(tokens[i])
+		switch tok {
+		case "agent", "agente":
+			if i+2 < len(tokens) && containsAny(tokens[i+1], "chamado", "named", "nome") {
+				if name := sanitizeGuideAgentName(tokens[i+2]); name != "" {
+					return name
+				}
+			}
+			if i+1 < len(tokens) {
+				if name := sanitizeGuideAgentName(tokens[i+1]); name != "" {
+					return name
+				}
+			}
+		}
+	}
+	for i := 1; i < len(tokens); i++ {
+		if tokens[i] == "agent" || tokens[i] == "agente" {
+			if name := sanitizeGuideAgentName(tokens[i-1]); name != "" {
+				return name
+			}
+		}
+	}
+	return ""
+}
+
+func sanitizeGuideAgentName(raw string) string {
+	raw = strings.Trim(raw, " ,.:;!?\"'`()[]{}")
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	switch raw {
+	case "para", "de", "do", "da", "e", "ou", "um", "uma", "novo", "nova", "workflow", "crew", "backend", "frontend", "crud":
+		return ""
+	}
+	for _, r := range raw {
+		switch {
+		case r >= 'a' && r <= 'z':
+		case r >= 'A' && r <= 'Z':
+		case r >= '0' && r <= '9':
+		case r == '_' || r == '-':
+		default:
+			return ""
+		}
+	}
+	return raw
+}
+
+func guideHasAgent(agents []string, name string) bool {
+	for _, agent := range agents {
+		if strings.EqualFold(strings.TrimSpace(agent), strings.TrimSpace(name)) {
+			return true
+		}
+	}
+	return false
+}
+
+func guideSuggestedNextAgent(agents []string) string {
+	order := []string{"planner", "coder", "reviewer"}
+	for _, candidate := range order {
+		if !guideHasAgent(agents, candidate) {
+			return candidate
+		}
+	}
+	return "agent_" + fmt.Sprintf("%d", len(agents)+1)
+}
+
+func guideSuggestedWorkflowSpec(agents []string) string {
+	preferred := make([]string, 0, 3)
+	for _, candidate := range []string{"planner", "coder", "reviewer"} {
+		if guideHasAgent(agents, candidate) {
+			preferred = append(preferred, candidate)
+		}
+	}
+	if len(preferred) >= 2 {
+		return strings.Join(preferred, ">")
+	}
+	if len(agents) >= 3 {
+		return strings.Join(agents[:3], ">")
+	}
+	return strings.Join(agents[:2], ">")
 }
 
 func guideWorkspaceDisplayPath(workspace, path string) string {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -27,6 +28,18 @@ func TestParseChatExecLineInjectsWorkspaceAndNoPrompt(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Fatalf("expected args to contain %q, got %q", want, got)
 		}
+	}
+}
+
+func TestParseChatExecLineNormalizesRelativeWorkspace(t *testing.T) {
+	req, err := parseChatExecLine(`/exec deeph crud run --workspace .`, "/tmp/workspace")
+	if err != nil {
+		t.Fatalf("parse exec line: %v", err)
+	}
+	got := strings.Join(req.Args, " ")
+	want := "--workspace " + filepath.Clean("/tmp/workspace")
+	if !strings.Contains(got, want) {
+		t.Fatalf("expected args to contain %q, got %q", want, got)
 	}
 }
 
@@ -61,5 +74,46 @@ func TestChatExecRequiresConfirm(t *testing.T) {
 	}
 	if !chatExecRequiresConfirm("crud up") {
 		t.Fatalf("expected crud up to require confirmation")
+	}
+	if next := chatExecDefaultNext("agent create"); next != "deeph validate --workspace ." {
+		t.Fatalf("next=%q", next)
+	}
+}
+
+func TestDerivePendingExecFromGuideText(t *testing.T) {
+	text := "Comando agora:\n```bash\ndeeph crud up --workspace .\n```\n"
+	pending := derivePendingExecFromGuideText("/tmp/workspace", text)
+	if pending == nil {
+		t.Fatalf("expected pending exec")
+	}
+	if pending.Path != "crud up" {
+		t.Fatalf("path=%q", pending.Path)
+	}
+	if !strings.Contains(strings.Join(pending.Args, " "), "--workspace /tmp/workspace") {
+		t.Fatalf("args=%q", strings.Join(pending.Args, " "))
+	}
+}
+
+func TestMaybeHandlePendingExecReplyNegative(t *testing.T) {
+	meta := &chatSessionMeta{
+		AgentSpec: "guide",
+		PendingExec: &chatPendingExec{
+			Path:    "crud up",
+			Args:    []string{"crud", "up", "--workspace", "/tmp/workspace"},
+			Display: "deeph crud up --workspace /tmp/workspace",
+		},
+	}
+	handled, replies, err := maybeHandlePendingExecReply(meta, "nao")
+	if err != nil {
+		t.Fatalf("pending reply: %v", err)
+	}
+	if !handled || len(replies) != 1 {
+		t.Fatalf("handled=%v replies=%d", handled, len(replies))
+	}
+	if meta.PendingExec != nil {
+		t.Fatalf("expected pending exec to be cleared")
+	}
+	if !strings.Contains(replies[0].Text, "Nao executei") {
+		t.Fatalf("reply=%q", replies[0].Text)
 	}
 }

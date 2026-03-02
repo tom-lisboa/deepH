@@ -88,7 +88,18 @@ func cmdChat(args []string) error {
 		if line == "" {
 			continue
 		}
+		if meta.PendingExec != nil {
+			if handled, replies, err := maybeHandlePendingExecReply(meta, line); err != nil {
+				fmt.Printf("error: %v\n", err)
+				continue
+			} else if handled {
+				printChatReplies(replies)
+				persistChatTurn(abs, meta, &entries, line, replies)
+				continue
+			}
+		}
 		if strings.HasPrefix(line, "/") {
+			meta.PendingExec = nil
 			done, err := handleChatSlashCommand(line, abs, meta, entries, plan, tasks, sinkIdxs)
 			if err != nil {
 				fmt.Printf("error: %v\n", err)
@@ -99,11 +110,16 @@ func cmdChat(args []string) error {
 			continue
 		}
 		if localText, ok := maybeAnswerGuideLocally(abs, meta, line); ok {
+			meta.PendingExec = derivePendingExecFromGuideText(abs, localText)
+			if meta.PendingExec != nil {
+				localText = appendGuideExecCallToAction(localText)
+			}
 			replies := []chatReply{{Agent: meta.AgentSpec, Text: localText}}
 			printChatReplies(replies)
 			persistChatTurn(abs, meta, &entries, line, replies)
 			continue
 		}
+		meta.PendingExec = nil
 
 		if *showTrace {
 			printCompactChatPlan(plan, sinkIdxs)
@@ -144,6 +160,33 @@ func cmdChat(args []string) error {
 			maybePrintCoachPostRunHint(abs, "chat", &plan, report)
 		}
 		persistChatTurn(abs, meta, &entries, line, replies)
+	}
+}
+
+func maybeHandlePendingExecReply(meta *chatSessionMeta, line string) (bool, []chatReply, error) {
+	if meta == nil || meta.PendingExec == nil {
+		return false, nil, nil
+	}
+	switch {
+	case chatLooksAffirmative(line):
+		req := chatExecRequest{
+			Path:      meta.PendingExec.Path,
+			Args:      append([]string{}, meta.PendingExec.Args...),
+			Display:   strings.TrimSpace(meta.PendingExec.Display),
+			Confirmed: true,
+		}
+		meta.PendingExec = nil
+		summary, err := executeChatExecRequest(req)
+		if err != nil {
+			return true, []chatReply{{Agent: meta.AgentSpec, Error: err.Error()}}, nil
+		}
+		return true, []chatReply{{Agent: meta.AgentSpec, Text: summary}}, nil
+	case chatLooksNegative(line):
+		meta.PendingExec = nil
+		return true, []chatReply{{Agent: meta.AgentSpec, Text: "Nao executei o comando pendente."}}, nil
+	default:
+		meta.PendingExec = nil
+		return false, nil, nil
 	}
 }
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -25,15 +26,26 @@ func handleChatExecSlashCommand(line, workspace string) error {
 		fmt.Printf("  /exec --yes %s\n", req.Display)
 		return nil
 	}
+	_, err = executeChatExecRequest(req)
+	return err
+}
 
+func executeChatExecRequest(req chatExecRequest) (string, error) {
 	fmt.Printf("[exec] %s\n", req.Display)
 	if err := run(req.Args); err != nil {
-		return err
+		return "", err
+	}
+	summary := fmt.Sprintf("Executei `%s`.", req.Display)
+	if req.Path == "agent create" {
+		summary += " Agora abra o YAML do agent no VS Code, ajuste o arquivo e depois rode `deeph validate --workspace .`."
 	}
 	if next := chatExecDefaultNext(req.Path); next != "" {
 		fmt.Printf("[exec] next: /exec --yes %s\n", next)
+		if req.Path != "agent create" {
+			summary += " Proximo passo sugerido: `" + next + "`."
+		}
 	}
-	return nil
+	return summary, nil
 }
 
 func parseChatExecLine(line, workspace string) (chatExecRequest, error) {
@@ -114,6 +126,9 @@ func augmentChatExecArgs(workspace, path string, pathLen int, args []string) []s
 	out := append([]string{}, args[:pathLen]...)
 	rest := append([]string{}, args[pathLen:]...)
 
+	if chatExecUsesWorkspace(path) {
+		rest = normalizeChatExecWorkspaceArgs(workspace, rest)
+	}
 	if chatExecUsesWorkspace(path) && !chatExecHasFlag(rest, "workspace") {
 		out = append(out, "--workspace", workspace)
 	}
@@ -122,6 +137,42 @@ func augmentChatExecArgs(workspace, path string, pathLen int, args []string) []s
 	}
 	out = append(out, rest...)
 	return out
+}
+
+func normalizeChatExecWorkspaceArgs(workspace string, args []string) []string {
+	if strings.TrimSpace(workspace) == "" {
+		return args
+	}
+	out := append([]string{}, args...)
+	for i := 0; i < len(out); i++ {
+		arg := out[i]
+		if arg == "--workspace" && i+1 < len(out) {
+			out[i+1] = normalizeChatExecWorkspaceValue(workspace, out[i+1])
+			i++
+			continue
+		}
+		if strings.HasPrefix(arg, "--workspace=") {
+			value := strings.TrimPrefix(arg, "--workspace=")
+			out[i] = "--workspace=" + normalizeChatExecWorkspaceValue(workspace, value)
+		}
+	}
+	return out
+}
+
+func normalizeChatExecWorkspaceValue(workspace, value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return workspace
+	}
+	if filepath.IsAbs(value) {
+		return value
+	}
+	joined := filepath.Join(workspace, value)
+	abs, err := filepath.Abs(joined)
+	if err != nil {
+		return joined
+	}
+	return abs
 }
 
 func chatExecUsesWorkspace(path string) bool {
@@ -161,6 +212,8 @@ func chatExecRequiresConfirm(path string) bool {
 
 func chatExecDefaultNext(path string) string {
 	switch commanddoc.NormalizePath(path) {
+	case "agent create":
+		return "deeph validate --workspace ."
 	case "crud init":
 		return "deeph crud run --workspace ."
 	case "crud run":
@@ -243,4 +296,66 @@ func chatSplitArgs(s string) ([]string, error) {
 	}
 	flush()
 	return out, nil
+}
+
+func derivePendingExecFromGuideText(workspace, text string) *chatPendingExec {
+	cmd := firstGuideCommand(text)
+	if strings.TrimSpace(cmd) == "" {
+		return nil
+	}
+	if strings.Contains(cmd, "<") || strings.Contains(cmd, ">") || strings.Contains(cmd, "...") {
+		return nil
+	}
+	req, err := parseChatExecLine("/exec "+cmd, workspace)
+	if err != nil {
+		return nil
+	}
+	return &chatPendingExec{
+		Path:    req.Path,
+		Args:    append([]string{}, req.Args...),
+		Display: req.Display,
+	}
+}
+
+func firstGuideCommand(text string) string {
+	lines := strings.Split(text, "\n")
+	inCode := false
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		switch {
+		case strings.HasPrefix(trimmed, "```"):
+			inCode = !inCode
+		case inCode && trimmed != "":
+			return trimmed
+		}
+	}
+	return ""
+}
+
+func appendGuideExecCallToAction(text string) string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return "Se quiser, responda `sim` e eu executo esse comando aqui no chat."
+	}
+	return text + "\n\nSe quiser, responda `sim` e eu executo esse comando aqui no chat."
+}
+
+func chatLooksAffirmative(s string) bool {
+	norm := normalizeChatLookupText(s)
+	switch norm {
+	case "sim", "s", "yes", "y", "ok", "okay", "pode", "pode sim", "manda", "manda bala", "vai", "pode executar", "executa", "execute":
+		return true
+	default:
+		return false
+	}
+}
+
+func chatLooksNegative(s string) bool {
+	norm := normalizeChatLookupText(s)
+	switch norm {
+	case "nao", "não", "n", "no", "cancelar", "cancela", "deixa", "deixa quieto", "deixa pra la", "deixa pra lá":
+		return true
+	default:
+		return false
+	}
 }

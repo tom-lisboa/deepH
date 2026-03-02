@@ -12,11 +12,18 @@ import (
 )
 
 type chatSessionMeta struct {
-	ID        string    `json:"id"`
-	AgentSpec string    `json:"agent_spec"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Turns     int       `json:"turns"`
+	ID          string           `json:"id"`
+	AgentSpec   string           `json:"agent_spec"`
+	CreatedAt   time.Time        `json:"created_at"`
+	UpdatedAt   time.Time        `json:"updated_at"`
+	Turns       int              `json:"turns"`
+	PendingExec *chatPendingExec `json:"pending_exec,omitempty"`
+}
+
+type chatPendingExec struct {
+	Path    string   `json:"path"`
+	Args    []string `json:"args"`
+	Display string   `json:"display"`
 }
 
 type chatSessionEntry struct {

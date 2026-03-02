@@ -32,7 +32,7 @@ func localGuideLooksOperational(norm string) bool {
 	if norm == "" {
 		return false
 	}
-	if containsAny(norm, "deeph", "workspace", "quickstart", "provider", "deepseek", "agent", "crew", "multiverse", "skill", "validate", "trace", "chat", "session", "kit", "backend", "crud", "graphql", "graph ql", "docker", "compose", "container", "saas", "projeto", "app", "produto") {
+	if containsAny(norm, "deeph", "workspace", "quickstart", "provider", "deepseek", "agent", "crew", "multiverse", "skill", "validate", "trace", "chat", "session", "kit", "backend", "crud", "graphql", "graph ql", "docker", "compose", "container", "saas", "projeto", "app", "produto", "workflow", "fluxo", "pipeline") {
 		return true
 	}
 	if containsAny(norm, "qual comando", "quais comandos", "como eu", "como faco", "como faço", "como uso", "como criar", "como rodar", "como configuro", "como configurar", "o que eu uso", "proximo passo", "próximo passo", "como comeco", "como começo") {

@@ -101,3 +101,59 @@ func TestMaybeAnswerGuideOperationalPrefersSmokeAfterUp(t *testing.T) {
 		}
 	}
 }
+
+func TestMaybeAnswerGuideOperationalAgentCreate(t *testing.T) {
+	ws := t.TempDir()
+	meta := &chatSessionMeta{ID: "s3", AgentSpec: "guide"}
+
+	if err := os.WriteFile(filepath.Join(ws, "deeph.yaml"), []byte("version: 1\ndefault_provider: deepseek\n"), 0o644); err != nil {
+		t.Fatalf("write deeph.yaml: %v", err)
+	}
+
+	got, ok := maybeAnswerGuideLocally(ws, meta, "cria um agent reviewer")
+	if !ok {
+		t.Fatalf("expected local guide operator answer")
+	}
+	for _, want := range []string{
+		"deeph agent create --workspace . reviewer",
+		"deeph validate --workspace .",
+		"agents/reviewer.yaml",
+		"VS Code",
+		"default_provider detectado: `deepseek`",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected reply to contain %q, got:\n%s", want, got)
+		}
+	}
+}
+
+func TestMaybeAnswerGuideOperationalWorkflowFromAgents(t *testing.T) {
+	ws := t.TempDir()
+	meta := &chatSessionMeta{ID: "s4", AgentSpec: "guide"}
+
+	if err := os.WriteFile(filepath.Join(ws, "deeph.yaml"), []byte("version: 1\n"), 0o644); err != nil {
+		t.Fatalf("write deeph.yaml: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(ws, "agents"), 0o755); err != nil {
+		t.Fatalf("mkdir agents: %v", err)
+	}
+	for _, name := range []string{"planner", "coder", "reviewer"} {
+		if err := os.WriteFile(filepath.Join(ws, "agents", name+".yaml"), []byte("name: "+name+"\nmodel: mock-small\nsystem_prompt: |\n  test\n"), 0o644); err != nil {
+			t.Fatalf("write agent %s: %v", name, err)
+		}
+	}
+
+	got, ok := maybeAnswerGuideLocally(ws, meta, "quero criar um workflow agora")
+	if !ok {
+		t.Fatalf("expected local guide operator answer")
+	}
+	for _, want := range []string{
+		`deeph trace --workspace . "planner>coder>reviewer" "sua tarefa"`,
+		`deeph run --workspace . "planner>coder>reviewer" "sua tarefa"`,
+		"3 agent(s) detectado(s): `coder`, `planner`, `reviewer`",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected reply to contain %q, got:\n%s", want, got)
+		}
+	}
+}
