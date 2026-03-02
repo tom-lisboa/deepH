@@ -253,6 +253,42 @@ Tips:
   - Use `--backend-only` when you want just the `Go` API and infra without generating `Next.js` pages.
   - `--containers=false` lets the user ask for local startup without Docker Compose in the generated prompt.
 
+### `crud up`
+- Purpose: Start the generated CRUD containers with Docker Compose.
+- Usage:
+  - `deeph crud up [--workspace DIR] [--compose-file FILE] [--build=true|false] [--detach=true|false] [--wait 45s] [--base-url URL]`
+- Examples:
+  - `deeph crud up`
+  - `deeph crud up --workspace ./futebol`
+  - `deeph crud up --workspace ./futebol --wait 60s`
+- Notes:
+  - Auto-detects `docker-compose.yml`, `docker-compose.yaml`, `compose.yml` or `compose.yaml` inside the workspace unless `--compose-file` is provided.
+  - Prefers `docker compose`, then falls back to `docker-compose` when available.
+
+### `crud smoke`
+- Purpose: Run the generated CRUD smoke test or fall back to a built-in HTTP CRUD probe.
+- Usage:
+  - `deeph crud smoke [--workspace DIR] [--compose-file FILE] [--base-url URL] [--route-base /people] [--entity NAME] [--fields nome:text,cidade:text] [--no-script] [--timeout 45s]`
+- Examples:
+  - `deeph crud smoke`
+  - `deeph crud smoke --workspace ./futebol --base-url http://127.0.0.1:8080`
+  - `deeph crud smoke --workspace ./futebol --no-script --entity players --fields nome:text,posicao:text`
+- Notes:
+  - Runs `scripts/smoke.sh` or `scripts/smoke.ps1` when the generated project provides them.
+  - When no script is found, tries a built-in create/list/read/update/delete flow using the saved CRUD profile.
+
+### `crud down`
+- Purpose: Stop the generated CRUD containers with Docker Compose.
+- Usage:
+  - `deeph crud down [--workspace DIR] [--compose-file FILE] [--volumes]`
+- Examples:
+  - `deeph crud down`
+  - `deeph crud down --workspace ./futebol`
+  - `deeph crud down --workspace ./futebol --volumes`
+- Notes:
+  - Stops the detected compose stack and removes orphan containers.
+  - Use `--volumes` only when you intentionally want to drop local database volumes.
+
 ## Coach
 
 ### `coach stats`

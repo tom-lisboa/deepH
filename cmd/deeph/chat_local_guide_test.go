@@ -17,6 +17,8 @@ func TestMaybeAnswerGuideLocallyBackendRecipe(t *testing.T) {
 		"deeph crud init",
 		"deeph crud trace --backend-only",
 		"deeph crud run --backend-only",
+		"deeph crud up",
+		"deeph crud smoke",
 		"projeto de futebol",
 	} {
 		if !strings.Contains(got, want) {
@@ -25,6 +27,24 @@ func TestMaybeAnswerGuideLocallyBackendRecipe(t *testing.T) {
 	}
 	if strings.Contains(got, "deeph create backend") && !strings.Contains(got, "Hoje nao existe `deeph create backend`") {
 		t.Fatalf("unexpected hallucinated create backend command in:\n%s", got)
+	}
+}
+
+func TestMaybeAnswerGuideLocallyDockerRecipe(t *testing.T) {
+	meta := &chatSessionMeta{ID: "s4", AgentSpec: "guide"}
+
+	got, ok := maybeAnswerGuideLocally(meta, "como eu subo os containers docker do meu crud?")
+	if !ok {
+		t.Fatalf("expected local guide docker answer")
+	}
+	for _, want := range []string{
+		"deeph crud up",
+		"deeph crud smoke",
+		"deeph crud down",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected docker answer to contain %q, got:\n%s", want, got)
+		}
 	}
 }
 

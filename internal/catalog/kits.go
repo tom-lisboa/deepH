@@ -328,7 +328,8 @@ provider: deepseek
 model: deepseek-chat
 system_prompt: |
   Implement the local infrastructure for this CRUD app.
-  Prefer Dockerfile, docker-compose, env example, healthcheck and smoke commands.
+  Prefer Dockerfile, docker-compose, env example, a GET /health endpoint, compose healthcheck and smoke commands.
+  Generate cross-platform smoke scripts at scripts/smoke.sh and scripts/smoke.ps1 when possible.
   Make local startup easy through short commands or scripts that the user can evolve later.
 skills:
   - file_read_range

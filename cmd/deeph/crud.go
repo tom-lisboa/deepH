@@ -46,7 +46,7 @@ type crudWorkspaceConfig struct {
 
 func cmdCRUD(args []string) error {
 	if len(args) == 0 {
-		return errors.New("crud requires a subcommand: init, prompt, trace or run")
+		return errors.New("crud requires a subcommand: init, prompt, trace, run, up, smoke or down")
 	}
 	switch args[0] {
 	case "init":
@@ -57,6 +57,12 @@ func cmdCRUD(args []string) error {
 		return cmdCRUDTrace(args[1:])
 	case "run":
 		return cmdCRUDRun(args[1:])
+	case "up":
+		return cmdCRUDUp(args[1:])
+	case "smoke":
+		return cmdCRUDSmoke(args[1:])
+	case "down":
+		return cmdCRUDDown(args[1:])
 	default:
 		return fmt.Errorf("unknown crud subcommand %q", args[0])
 	}
@@ -369,9 +375,11 @@ func buildCRUDPrompt(opts crudPromptOptions) string {
 		"Entregue:",
 		"- rotas CRUD completas",
 		"- tabela final de rotas HTTP com metodo, path e payload",
+		"- endpoint GET /health para startup e smoke checks",
 		"- persistencia no banco",
 		"- migration SQL ou equivalente",
 		"- Dockerfile e docker-compose quando aplicavel",
+		"- scripts/smoke.sh e scripts/smoke.ps1 para validar o CRUD localmente",
 		"- README com comandos exatos para subir e testar",
 		"- smoke test simples com exemplos de create, list, update e delete",
 	)

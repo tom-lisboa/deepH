@@ -29,7 +29,7 @@ func localGuideLooksOperational(norm string) bool {
 	if norm == "" {
 		return false
 	}
-	if containsAny(norm, "deeph", "workspace", "quickstart", "provider", "deepseek", "agent", "crew", "multiverse", "skill", "validate", "trace", "chat", "session", "kit", "backend", "crud", "graphql", "graph ql") {
+	if containsAny(norm, "deeph", "workspace", "quickstart", "provider", "deepseek", "agent", "crew", "multiverse", "skill", "validate", "trace", "chat", "session", "kit", "backend", "crud", "graphql", "graph ql", "docker", "compose", "container") {
 		return true
 	}
 	if containsAny(norm, "qual comando", "quais comandos", "como eu", "como faco", "como faço", "como uso", "como criar", "como rodar", "como configuro", "como configurar", "o que eu uso") {
@@ -55,6 +55,20 @@ func localGuideRecipeReply(norm string) (string, bool) {
 				"Se quiser revisar o plano antes de gastar token, rode `deeph trace --multiverse 0 'crew:<nome-da-crew>' \"sua tarefa\"`.",
 			},
 		), true
+	case containsAny(norm, "docker", "compose", "container", "containers") && containsAny(norm, "crud", "backend", "api", "server", "servidor"):
+		return formatLocalGuideReply(
+			"Para operar o CRUD localmente sem ficar lembrando `docker compose`, use os comandos do proprio `deepH`:",
+			[]string{
+				"deeph crud up",
+				"deeph crud smoke",
+				"deeph crud down",
+			},
+			[]string{
+				"`deeph crud up` procura o compose do workspace e sobe os containers.",
+				"`deeph crud smoke` roda o script gerado ou faz um smoke HTTP padrao do CRUD.",
+				"Se a URL da API nao for detectada sozinha, passe `--base-url http://127.0.0.1:8080`.",
+			},
+		), true
 	case containsAny(norm, "graphql", "graph ql"):
 		return formatLocalGuideReply(
 			"Hoje nao existe um comando nativo como `deeph create graphql-backend`. O caminho mais proximo e criar um agent focado e mandar ele gerar o backend:",
@@ -75,10 +89,13 @@ func localGuideRecipeReply(norm string) (string, bool) {
 				"deeph crud init",
 				"deeph crud trace --entity people --fields nome:text,cidade:text",
 				"deeph crud run --entity people --fields nome:text,cidade:text",
+				"deeph crud up",
+				"deeph crud smoke",
 			},
 			[]string{
 				"O fluxo `deeph crud` ja assume os defaults opinativos: backend em Go, frontend em Next.js e banco em Postgres.",
 				"Se voce quiser so backend, use `deeph crud run --backend-only --entity people --fields nome:text,cidade:text`.",
+				"Depois de gerar o projeto, use `deeph crud up` para subir os containers e `deeph crud down` para derrubar o ambiente.",
 				"Depois da primeira geracao, refine o dominio trocando `people` pelos agregados reais de " + subject + ".",
 			},
 		), true
@@ -89,6 +106,8 @@ func localGuideRecipeReply(norm string) (string, bool) {
 				"deeph crud init",
 				"deeph crud trace --backend-only --entity people --fields nome:text,cidade:text",
 				"deeph crud run --backend-only --entity people --fields nome:text,cidade:text",
+				"deeph crud up",
+				"deeph crud smoke",
 			},
 			[]string{
 				"Esse fluxo ja assume backend em Go, banco Postgres e pode subir com containers.",
