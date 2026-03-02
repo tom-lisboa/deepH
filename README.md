@@ -114,8 +114,9 @@ Recommended first steps in any existing project:
 1. `cd` into the project you want to work on.
 2. Run `deeph quickstart --workspace . --deepseek`.
 3. Set `DEEPSEEK_API_KEY`.
-4. Run `deeph review` to inspect current changes.
-5. Run `deeph chat guide` to discuss the project interactively.
+4. Run `deeph edit "your requested change"` to make a focused code change.
+5. Run `deeph review` to inspect current changes.
+6. Run `deeph chat guide` to orchestrate or discuss the project interactively.
 
 If you prefer the guided menu instead of direct CLI:
 
@@ -137,7 +138,9 @@ set DEEPSEEK_API_KEY=sk-...your_real_key...
 
 Notes:
 
-- `quickstart` creates `deeph.yaml`, starter agent, starter skills, and validates the workspace.
+- `quickstart` creates `deeph.yaml`, starter agents, starter skills, review crew, and validates the workspace.
+- In a fresh guide-based workspace, `quickstart` installs `coder`, `reviewer`, `review_synth`, `reviewflow`, `file_read_range`, and `file_write_safe`.
+- If your project was initialized with an older `deepH`, rerun `deeph quickstart --workspace .` to install the new editing/review pack. `deeph update` updates the binary, not the agents already stored inside each project.
 - The starter `guide` is tuned to answer with exact `deeph` commands and can consult the built-in command dictionary when needed.
 - Use a real DeepSeek key; placeholders like `sk-CHAVE_NOVA_REAL` will return 401.
 - Update binary any time with `deeph update`.
@@ -147,10 +150,19 @@ Notes:
 Inside a ready workspace:
 
 ```bash
+deeph edit "implement the requested code change"
 deeph review
 deeph review --trace
 deeph chat guide
 deeph run guide "analyze this project"
+```
+
+Recommended day-to-day loop:
+
+```bash
+deeph edit "make the code change"
+deeph review
+deeph chat guide
 ```
 
 ## Quick CRUD
