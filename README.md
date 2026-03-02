@@ -48,6 +48,8 @@ Product/investigation summary:
 ```
 
 ## Quick Start
+<img width="1280" height="853" alt="image" src="https://github.com/user-attachments/assets/724e540d-5924-4ae7-80c3-c74d73a85898" />
+
 
 ### Install from GitHub Releases (recommended)
 
