@@ -13,6 +13,9 @@ func maybeAnswerGuideLocally(workspace string, meta *chatSessionMeta, userMessag
 		return "", false
 	}
 	norm := normalizeChatLookupText(userMessage)
+	if out, ok := maybeAnswerGuideCodeWorkflow(workspace, norm, userMessage); ok {
+		return out, true
+	}
 	if !localGuideLooksOperational(norm) {
 		return "", false
 	}
@@ -26,6 +29,78 @@ func maybeAnswerGuideLocally(workspace string, meta *chatSessionMeta, userMessag
 		return out, true
 	}
 	return "", false
+}
+
+func maybeAnswerGuideCodeWorkflow(workspace, norm, userMessage string) (string, bool) {
+	if !localGuideLooksCodeRequest(norm, userMessage) {
+		return "", false
+	}
+	agents := listWorkspaceAgentNames(workspace)
+	if agent := guideSuggestedCodeAgent(agents, norm); agent != "" {
+		return formatLocalGuideReply(
+			"O `guide` deste chat e focado na operacao do `deepH`. Para analisar ou implementar codigo de verdade no workspace, o caminho certo agora e executar um agent de codigo.",
+			[]string{
+				fmt.Sprintf("deeph run --workspace . %s %s", agent, strconv.Quote(strings.TrimSpace(userMessage))),
+			},
+			[]string{
+				fmt.Sprintf("Isso roda o agent `%s` com a sua instrucao atual, sem reabrir outro chat.", agent),
+				"Se quiser revisar apenas mudancas locais em Git, use tambem `deeph review --workspace .`.",
+			},
+		), true
+	}
+	return formatLocalGuideReply(
+		"O `guide` deste chat e operacional. Para editar ou analisar codigo de forma util, o workspace precisa de um agent de codigo e skills de arquivo.",
+		[]string{
+			"deeph skill add --workspace . file_read_range",
+			"deeph skill add --workspace . file_write_safe",
+			"deeph agent create --workspace . coder",
+			"deeph review --workspace .",
+		},
+		[]string{
+			"Depois de criar `agents/coder.yaml`, adicione as skills `file_read_range` e `file_write_safe` nesse agent e rode `deeph validate --workspace .`.",
+			"Em seguida, execute `deeph run --workspace . coder \"sua instrucao\"` para fazer a analise ou edicao.",
+			"`deeph review --workspace .` e o atalho certo quando a analise for sobre mudancas locais no Git.",
+		},
+	), true
+}
+
+func localGuideLooksCodeRequest(norm, raw string) bool {
+	if norm == "" {
+		return false
+	}
+	if containsAny(norm, "qual comando", "quais comandos", "como eu", "como faco", "como faço", "como uso", "como rodar", "como configurar", "provider", "deepseek", "workspace", "crew", "session", "chat", "trace", "validate", "agent", "agente") {
+		return false
+	}
+	if containsAny(norm, "analise", "analisar", "analisa", "revise", "review", "explique", "explica", "sugira", "sugerir", "implemente", "implementa", "adicione", "adicionar", "funcao", "função", "function", "arquivo", "file", "codigo", "código", "main.go", "main.py") {
+		return true
+	}
+	raw = strings.TrimSpace(raw)
+	if strings.Contains(raw, "/") && strings.Contains(raw, ".") {
+		return true
+	}
+	return false
+}
+
+func guideSuggestedCodeAgent(agents []string, norm string) string {
+	containsAgent := func(candidates ...string) string {
+		for _, candidate := range candidates {
+			for _, agent := range agents {
+				if strings.EqualFold(strings.TrimSpace(agent), candidate) {
+					return agent
+				}
+			}
+		}
+		return ""
+	}
+	if containsAny(norm, "implemente", "implementa", "crie", "adicionar", "adicione") {
+		if agent := containsAgent("coder", "builder", "implementer"); agent != "" {
+			return agent
+		}
+	}
+	if agent := containsAgent("reviewer", "coder", "review_synth"); agent != "" {
+		return agent
+	}
+	return ""
 }
 
 func localGuideLooksOperational(norm string) bool {

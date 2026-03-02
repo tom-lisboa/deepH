@@ -148,7 +148,7 @@ func renderGuideStarterTemplate(opts AgentTemplateOptions) string {
 	b.WriteString("skills:\n")
 	b.WriteString("  - command_doc\n")
 	b.WriteString("metadata:\n")
-	b.WriteString("  tool_max_calls: \"1\"\n")
+	b.WriteString("  tool_max_calls: \"2\"\n")
 	b.WriteString("  max_tool_rounds: \"2\"\n")
 	b.WriteString("  max_repeated_tool_calls: \"1\"\n")
 	b.WriteString("  context_max_input_tokens: \"900\"\n")

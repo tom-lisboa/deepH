@@ -153,6 +153,14 @@ func (s *chatSessionActorState) processLine(line string) chatSessionActorTurnRes
 	report, err := s.cfg.Engine.RunSpec(ctx, s.meta.AgentSpec, input)
 	stopCoach()
 	if err != nil {
+		if replies := maybeBuildChatErrorFallback(s.cfg.Workspace, s.meta, line, err); len(replies) > 0 {
+			replies = sanitizeChatReplies(s.meta, replies)
+			printChatReplies(replies)
+			before := len(s.entries)
+			persistChatTurn(s.cfg.Workspace, s.meta, &s.entries, line, replies)
+			s.afterPersist(before)
+			return chatSessionActorTurnResult{}
+		}
 		fmt.Printf("error: %v\n", err)
 		return chatSessionActorTurnResult{}
 	}

@@ -45,7 +45,7 @@ Product/investigation summary:
     └── agents/
 ```
 
-## Quick Start (2 minutes)
+## Quick Start
 
 ### Install from GitHub Releases (recommended)
 
@@ -76,17 +76,57 @@ deeph
 
 `deeph` opens `studio` by default in interactive terminals (guided menu).
 
-Studio manual:
+## Use deepH in Your Project
 
-- [Studio, workspace e chat no deepH](docs/STUDIO_MANUAL.md)
+The `deeph` binary is global. It does not need the `deepH` repository to work.
 
-For quick non-interactive start:
+What matters is the project you want to work on.
+
+If your project is `jogo-da-velha`, go to that project folder and initialize `deepH` there:
 
 ```bash
-mkdir -p ~/deeph-workspace && cd ~/deeph-workspace
-deeph quickstart --deepseek
+cd /path/to/jogo-da-velha
+deeph quickstart --workspace . --deepseek
 export DEEPSEEK_API_KEY="sk-...your_real_key..."
-deeph run guide "hello"
+deeph review
+deeph chat guide
+```
+
+This creates the `deepH` workspace files inside the project:
+
+```text
+jogo-da-velha/
+├── deeph.yaml
+├── agents/
+├── skills/
+└── sessions/
+```
+
+If you are outside the project folder, pass `--workspace` explicitly:
+
+```bash
+deeph review --workspace /path/to/jogo-da-velha
+deeph chat --workspace /path/to/jogo-da-velha guide
+```
+
+Recommended first steps in any existing project:
+
+1. `cd` into the project you want to work on.
+2. Run `deeph quickstart --workspace . --deepseek`.
+3. Set `DEEPSEEK_API_KEY`.
+4. Run `deeph review` to inspect current changes.
+5. Run `deeph chat guide` to discuss the project interactively.
+
+If you prefer the guided menu instead of direct CLI:
+
+```bash
+deeph
+```
+
+Or:
+
+```bash
+deeph studio --workspace /path/to/jogo-da-velha
 ```
 
 Windows CMD key setup:
@@ -97,10 +137,21 @@ set DEEPSEEK_API_KEY=sk-...your_real_key...
 
 Notes:
 
-- `quickstart` creates workspace + starter agent + `echo` skill + validation in one flow.
+- `quickstart` creates `deeph.yaml`, starter agent, starter skills, and validates the workspace.
 - The starter `guide` is tuned to answer with exact `deeph` commands and can consult the built-in command dictionary when needed.
 - Use a real DeepSeek key; placeholders like `sk-CHAVE_NOVA_REAL` will return 401.
 - Update binary any time with `deeph update`.
+
+## First Commands
+
+Inside a ready workspace:
+
+```bash
+deeph review
+deeph review --trace
+deeph chat guide
+deeph run guide "analyze this project"
+```
 
 ## Quick CRUD
 
@@ -123,81 +174,15 @@ Detailed guide:
 
 - [CRUD com deepH](docs/CRUD.md)
 
-## Guided Walkthroughs
+## Documentation
 
-- [Studio, Workspace e Chat no deepH](docs/STUDIO_MANUAL.md)
+- [Studio, workspace e chat no deepH](docs/STUDIO_MANUAL.md)
 - [Estado do produto e investigacao do deepH](docs/PRODUCT_STATE_AND_INVESTIGATION.md)
+- [Agents e Agent Specs](docs/AGENTS_AND_SPECS.md)
+- [Workflows, Universos e Comunicacao](docs/WORKFLOWS_AND_UNIVERSES.md)
 - [CRUD com deepH](docs/CRUD.md)
-- [Stack opinativa do CRUD](docs/CRUD.md#stack-opinativa)
-- [Fluxo recomendado](docs/CRUD.md#fluxo-recomendado)
-- [Inicializar o workspace CRUD](docs/CRUD.md#1-inicializar-o-workspace-crud)
-- [Inspecionar o plano antes de gerar](docs/CRUD.md#2-inspecionar-o-plano-antes-de-gerar)
-- [Gerar o CRUD](docs/CRUD.md#3-gerar-o-crud)
-- [Subir o ambiente local](docs/CRUD.md#4-subir-o-ambiente-local)
-- [Validar o CRUD](docs/CRUD.md#5-validar-o-crud)
-- [Derrubar o ambiente](docs/CRUD.md#6-derrubar-o-ambiente)
-- [Windows PowerShell](docs/CRUD.md#windows-powershell)
-- [Troubleshooting rapido](docs/CRUD.md#troubleshooting-rapido)
-- [O que e o studio](docs/STUDIO_MANUAL.md#o-que-e-o-studio)
-- [O que e um workspace](docs/STUDIO_MANUAL.md#o-que-e-um-workspace)
-- [Criando a pasta do workspace](docs/STUDIO_MANUAL.md#criando-a-pasta-do-workspace)
-- [Como o deepH escolhe o workspace](docs/STUDIO_MANUAL.md#como-o-deeph-escolhe-o-workspace)
-- [Como abrir o studio](docs/STUDIO_MANUAL.md#como-abrir-o-studio)
-- [O launcher inicial](docs/STUDIO_MANUAL.md#o-launcher-inicial)
-- [Criar workspace com DeepSeek](docs/STUDIO_MANUAL.md#criar-workspace-com-deepseek)
-- [Criar workspace com local-mock](docs/STUDIO_MANUAL.md#criar-workspace-com-local-mock)
-- [Abrir um workspace existente](docs/STUDIO_MANUAL.md#abrir-um-workspace-existente)
-- [Trocar de workspace no studio](docs/STUDIO_MANUAL.md#trocar-de-workspace-no-studio)
-- [Como abrir um chat no studio](docs/STUDIO_MANUAL.md#como-abrir-um-chat-no-studio)
-- [Como abrir um chat direto pela CLI](docs/STUDIO_MANUAL.md#como-abrir-um-chat-direto-pela-cli)
-- [Como as sessoes funcionam](docs/STUDIO_MANUAL.md#como-as-sessoes-funcionam)
-- [Fluxo recomendado com IDE](docs/STUDIO_MANUAL.md#fluxo-recomendado-com-ide)
-- [Erros comuns do studio/chat](docs/STUDIO_MANUAL.md#erros-comuns)
-- [Agents e Agent Spec no deepH](docs/AGENTS_AND_SPECS.md)
-- [O que e um agent](docs/AGENTS_AND_SPECS.md#o-que-e-um-agent)
-- [Anatomia do arquivo do agent](docs/AGENTS_AND_SPECS.md#anatomia-do-arquivo-do-agent)
-- [O que e um agent spec](docs/AGENTS_AND_SPECS.md#o-que-e-um-agent-spec)
-- [Como funciona o `+`](docs/AGENTS_AND_SPECS.md#como-funciona-o-operador-plus-)
-- [Como funciona o `>`](docs/AGENTS_AND_SPECS.md#como-funciona-o-operador-maior-que-)
-- [Combinar `+` e `>`](docs/AGENTS_AND_SPECS.md#combinar-plus--e-maior-que-)
-- [Quando usar cada formato](docs/AGENTS_AND_SPECS.md#quando-usar-cada-formato)
-- [Conversa com agents no chat](docs/AGENTS_AND_SPECS.md#conversa-com-agents-no-chat)
-- [Quando usar `@crew` ou `crew:nome`](docs/AGENTS_AND_SPECS.md#quando-usar-crew-ou-crewnome)
-- [Erros comuns](docs/AGENTS_AND_SPECS.md#erros-comuns)
-- [Workflows, Universos e Comunicacao no deepH](docs/WORKFLOWS_AND_UNIVERSES.md)
-- [O que e um workflow](docs/WORKFLOWS_AND_UNIVERSES.md#o-que-e-um-workflow)
-- [Workflow simples vs workflow nomeado](docs/WORKFLOWS_AND_UNIVERSES.md#workflow-simples-vs-workflow-nomeado)
-- [O que e um universo](docs/WORKFLOWS_AND_UNIVERSES.md#o-que-e-um-universo)
-- [Exemplo de crew com universos](docs/WORKFLOWS_AND_UNIVERSES.md#exemplo-de-crew-com-universos)
-- [Como os universos se comunicam](docs/WORKFLOWS_AND_UNIVERSES.md#como-os-universos-se-comunicam)
-- [Campos que controlam a comunicacao](docs/WORKFLOWS_AND_UNIVERSES.md#campos-que-controlam-a-comunicacao)
-- [Quando os universos nao se comunicam](docs/WORKFLOWS_AND_UNIVERSES.md#quando-os-universos-nao-se-comunicam)
-- [Como inspecionar isso na CLI](docs/WORKFLOWS_AND_UNIVERSES.md#como-inspecionar-isso-na-cli)
-- [Quando usar workflow simples, crew ou multiverse](docs/WORKFLOWS_AND_UNIVERSES.md#quando-usar-workflow-simples-crew-ou-multiverse)
-- [Erros comuns em workflows/universos](docs/WORKFLOWS_AND_UNIVERSES.md#erros-comuns)
-- [Windows PowerShell com deepH](docs/WINDOWS_POWERSHELL.md)
-- [Passo 1: instalar o deeph no PowerShell](docs/WINDOWS_POWERSHELL.md#passo-1-instalar-o-deeph)
-- [Passo 2: confirmar o binario](docs/WINDOWS_POWERSHELL.md#passo-2-confirmar-o-binario)
-- [Passo 3: salvar e importar a API key](docs/WINDOWS_POWERSHELL.md#passo-3-salvar-e-importar-a-api-key)
-- [Passo 4: criar o workspace](docs/WINDOWS_POWERSHELL.md#passo-4-criar-o-workspace)
-- [Passo 5: configurar o provider DeepSeek](docs/WINDOWS_POWERSHELL.md#passo-5-configurar-o-provider-deepseek)
-- [Passo 6: abrir o studio e conversar](docs/WINDOWS_POWERSHELL.md#passo-6-abrir-o-studio-e-conversar)
-- [Passo 7: troubleshooting](docs/WINDOWS_POWERSHELL.md#passo-7-troubleshooting)
+- [Windows PowerShell step by step](docs/WINDOWS_POWERSHELL.md)
 - [Calculadora estilo iPhone com deepH](docs/IPHONE_CALCULATOR.md)
-- [Passo 1: instalar o deeph](docs/IPHONE_CALCULATOR.md#passo-1-instalar-o-deeph)
-- [Passo 2: criar workspace e configurar a API key](docs/IPHONE_CALCULATOR.md#passo-2-criar-workspace-e-configurar-a-api-key)
-- [Passo 3: bootstrap do workspace e aumento de timeout](docs/IPHONE_CALCULATOR.md#passo-3-bootstrap-do-workspace-e-aumento-de-timeout)
-- [Passo 4: gerar a base fullstack da calculadora](docs/IPHONE_CALCULATOR.md#passo-4-gerar-a-base-fullstack-da-calculadora)
-- [Passo 5: criar os agents de frontend iPhone](docs/IPHONE_CALCULATOR.md#passo-5-criar-os-agents-de-frontend-iphone)
-- [Passo 6: colar os prompts completos dos agents](docs/IPHONE_CALCULATOR.md#passo-6-colar-os-prompts-completos-dos-agents)
-- [Passo 7: criar o crew de multiverso front-only](docs/IPHONE_CALCULATOR.md#passo-7-criar-o-crew-de-multiverso-front-only)
-- [Passo 8: rodar o multiverso](docs/IPHONE_CALCULATOR.md#passo-8-rodar-o-multiverso)
-- [Passo 9: recovery se algum universo falhar](docs/IPHONE_CALCULATOR.md#passo-9-recovery-se-algum-universo-falhar)
-- [Passo 10: pedir para o deeph configurar Tailwind e a paleta iPhone](docs/IPHONE_CALCULATOR.md#passo-10-pedir-para-o-deeph-configurar-tailwind-e-a-paleta-iphone)
-- [Passo 11: subir backend e frontend](docs/IPHONE_CALCULATOR.md#passo-11-subir-backend-e-frontend)
-- [Passo 12: conferir o que foi gerado](docs/IPHONE_CALCULATOR.md#passo-12-conferir-o-que-foi-gerado)
-
-GitHub renders these links as clickable Markdown links on the repository homepage. Opening in a new tab is controlled by the browser/UI; use `Cmd`/`Ctrl` + click if needed.
 
 ### 3) Daily commands
 

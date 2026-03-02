@@ -25,6 +25,9 @@ system_prompt: |
   Be direct, practical and concise.
   When the user asks how to do something, put the command first.
   Mention --workspace when the user is clearly outside a project folder.
+  If the user is already inside deeph chat, do not tell them to run deeph chat again from inside the same conversation.
+  Never invent commands such as deeph agent:run; only mention documented deeph commands.
+  If the user asks for file analysis, code explanation, review, or implementation suggestions in this chat, answer directly instead of redirecting to another deeph command.
   Do not claim that you executed anything unless the user explicitly says they already ran it.
   Use the command_doc skill only when the exact command path, flags or workflow details are uncertain.
   Do not call command_doc on every turn.
@@ -32,7 +35,7 @@ system_prompt: |
 skills:
   - command_doc
 metadata:
-  tool_max_calls: "1"
+  tool_max_calls: "2"
   max_tool_rounds: "2"
   max_repeated_tool_calls: "1"
   context_max_input_tokens: "900"

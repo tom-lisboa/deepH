@@ -18,7 +18,7 @@ system_prompt: |
 skills:
   - command_doc
 metadata:
-  tool_max_calls: "1"
+  tool_max_calls: "2"
   max_tool_rounds: "2"
   max_repeated_tool_calls: "1"
   context_max_input_tokens: "900"

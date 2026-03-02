@@ -15,6 +15,7 @@ Os links abaixo sao clicaveis no GitHub.
 
 - [O que e o studio](#o-que-e-o-studio)
 - [O que e um workspace](#o-que-e-um-workspace)
+- [Usando o deepH em um projeto existente](#usando-o-deeph-em-um-projeto-existente)
 - [Criando a pasta do workspace](#criando-a-pasta-do-workspace)
 - [Como o deepH escolhe o workspace](#como-o-deeph-escolhe-o-workspace)
 - [Como abrir o studio](#como-abrir-o-studio)
@@ -98,6 +99,50 @@ meu-workspace/
 O arquivo que marca a raiz do workspace e `deeph.yaml`.
 
 Sem esse arquivo, o `deepH` entende que a pasta ainda nao foi inicializada.
+
+## Usando o deepH em um projeto existente
+
+O `deeph` e um binario global.
+
+Voce nao precisa abrir a pasta do repositorio do `deepH`.
+Voce precisa abrir a pasta do projeto que quer revisar ou conversar.
+
+Exemplo: se o seu projeto se chama `jogo-da-velha`, use essa pasta como workspace:
+
+```bash
+cd /caminho/jogo-da-velha
+deeph quickstart --workspace . --deepseek
+export DEEPSEEK_API_KEY="sk-...sua_chave..."
+deeph review
+deeph chat guide
+```
+
+Se voce estiver fora da pasta do projeto, passe `--workspace`:
+
+```bash
+deeph review --workspace /caminho/jogo-da-velha
+deeph chat --workspace /caminho/jogo-da-velha guide
+```
+
+Em outras palavras:
+
+1. entre no projeto que voce quer usar
+2. rode `deeph quickstart --workspace . --deepseek`
+3. configure `DEEPSEEK_API_KEY`
+4. rode `deeph review`
+5. rode `deeph chat guide`
+
+O `quickstart` cria a estrutura do `deepH` dentro do proprio projeto:
+
+```text
+jogo-da-velha/
+├── deeph.yaml
+├── agents/
+├── skills/
+└── sessions/
+```
+
+Isso deixa claro onde o `deepH` vai trabalhar: no seu projeto atual.
 
 ## Criando a pasta do workspace
 
