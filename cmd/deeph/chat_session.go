@@ -71,7 +71,7 @@ func cmdChat(args []string) error {
 	fmt.Printf("Workspace: %s\n", abs)
 	fmt.Printf("Agent spec: %s\n", meta.AgentSpec)
 	fmt.Printf("History entries loaded: %d\n", len(entries))
-	fmt.Println("Commands: /help, /history, /trace, /exit")
+	fmt.Println("Commands: /help, /history, /trace, /exec, /exit")
 
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Buffer(make([]byte, 0, 64*1024), 2*1024*1024)
@@ -358,6 +358,7 @@ func handleChatSlashCommand(line, workspace string, meta *chatSessionMeta, entri
 		fmt.Println("  /help    show this help")
 		fmt.Println("  /history show recent session entries")
 		fmt.Println("  /trace   show compact execution plan summary")
+		fmt.Println("  /exec    execute a deeph command inside this chat session")
 		fmt.Println("  /exit    end chat session")
 		return false, nil
 	case cmd == "/trace":
@@ -380,6 +381,10 @@ func handleChatSlashCommand(line, workspace string, meta *chatSessionMeta, entri
 			fmt.Printf("- turn=%d %s: %s\n", e.Turn, label, clipLine(e.Text, 180))
 		}
 		return false, nil
+	case strings.HasPrefix(cmd, "/exec "):
+		return false, handleChatExecSlashCommand(cmd, workspace)
+	case cmd == "/exec":
+		return false, handleChatExecSlashCommand(cmd, workspace)
 	default:
 		return false, fmt.Errorf("unknown slash command %q", cmd)
 	}
