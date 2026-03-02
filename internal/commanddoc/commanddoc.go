@@ -190,13 +190,15 @@ var docs = []Doc{
 		Examples: []string{
 			"deeph review",
 			`deeph review --trace "focus on regressions and missing tests"`,
+			"deeph review --spec @reviewflow",
 			"deeph review --spec reviewer",
 			"deeph review --json",
 		},
 		Notes: []string{
-			"Builds a compact review brief from the current git diff plus a Go-aware working set (same package, tests, local imports).",
+			"Builds a compact review brief from the current git diff plus a Go-aware working set (same package, tests, local imports, reverse imports).",
 			"`--json` prints the generated scope and review input payload instead of running the agent.",
-			"Defaults to `reviewer` when present, otherwise falls back to `guide`.",
+			"When `crews/reviewflow.yaml` exists, defaults to `@reviewflow`; otherwise falls back to a builtin multiverse review flow rooted at `reviewer` or `guide`.",
+			"Passing `--spec SPEC` keeps the review on that explicit agent or crew instead of auto-selecting the builtin flow.",
 		},
 	},
 	{

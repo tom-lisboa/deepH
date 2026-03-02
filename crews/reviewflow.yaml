@@ -1,0 +1,46 @@
+name: reviewflow
+description: Diff-aware review crew with focused universes and a final synth pass
+spec: reviewer
+universes:
+  - name: baseline
+    spec: reviewer
+    output_kind: summary/text
+    handoff_max_chars: 240
+
+  - name: strict
+    spec: reviewer
+    output_kind: diagnostic/test
+    handoff_max_chars: 240
+    input_prefix: |
+      [review_mode]
+      mode: strict
+      Focus on regressions, edge cases, missing tests, unsafe assumptions and overconfident conclusions.
+
+  - name: go_focus
+    spec: reviewer
+    output_kind: diagnostic/build
+    handoff_max_chars: 260
+    input_prefix: |
+      [review_mode]
+      mode: go-specific
+      Focus on Go semantics: context cancellation, goroutine leaks, channel misuse, nil and pointer handling, interface traps, error wrapping, sync hazards and io or resource cleanup.
+
+  - name: tests_focus
+    spec: reviewer
+    output_kind: test/unit
+    handoff_max_chars: 240
+    input_prefix: |
+      [review_mode]
+      mode: tests
+      Focus on missing tests, brittle assertions, integration gaps, fixture blind spots and why a bug could escape current coverage.
+
+  - name: synth
+    spec: review_synth
+    output_kind: plan/summary
+    depends_on: [baseline, strict, go_focus, tests_focus]
+    merge_policy: append
+    handoff_max_chars: 280
+    input_prefix: |
+      [review_mode]
+      mode: synth
+      Merge upstream review findings, deduplicate overlaps, rank severity, keep file references and say explicitly when no convincing bug was found.
