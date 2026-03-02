@@ -55,6 +55,8 @@ No menu principal mais novo, essas acoes aparecem agrupadas por fluxo:
 
 Isso reduz a carga cognitiva e deixa a retomada mais rapida.
 
+Outra mudanca pratica: antes de executar os fluxos principais, o `studio` mostra o comando `deeph ...` equivalente. Isso ajuda quem esta aprendendo a CLI e reduz ambiguidade sobre o que o menu vai rodar.
+
 Se voce rodar `deeph` num terminal interativo, ele abre o `studio` por padrao.
 
 Tambem da para abrir explicitamente:
@@ -271,6 +273,30 @@ Exemplo de `agent spec`:
 - `planner+reader>coder>reviewer`
 
 No starter padrao, o `guide` foi pensado para responder com comandos exatos do `deeph` e usar uma consulta curta ao dicionario de comandos so quando a sintaxe precisa ser confirmada.
+
+## Como revisar mudancas no studio
+
+No menu principal, use:
+
+`7) Review current changes`
+
+Esse fluxo agora abre um mini-menu com 3 opcoes:
+
+1. `Run review`
+2. `Trace review flow`
+3. `Show working set`
+
+Isso permite:
+
+- rodar a revisao direto
+- inspecionar o plano antes
+- ver quais arquivos o `deepH` escolheu para o review diff-aware
+
+O `studio` tambem mostra o comando equivalente antes da execucao, por exemplo:
+
+```bash
+deeph review --workspace ./meu-workspace --trace
+```
 
 Quando houver sessoes recentes, o `studio` tambem lista as ultimas para facilitar resume.
 

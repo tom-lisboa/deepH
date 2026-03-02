@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"deeph/internal/reviewscope"
 )
 
 func cmdStudio(args []string) error {
@@ -270,6 +272,7 @@ func studioQuickResume(reader *bufio.Reader, state *studioState, defaultWorkspac
 		args = append(args, "--session", plan.SessionID)
 	}
 	args = append(args, plan.Spec)
+	printStudioCommandPreview(append([]string{"chat"}, args...)...)
 	if err := cmdChat(args); err != nil {
 		return ws, err
 	}
@@ -301,6 +304,7 @@ func studioQuickstart(reader *bufio.Reader, state *studioState, defaultWorkspace
 	} else {
 		args = append(args, "--provider", "local_mock", "--model", "mock-small")
 	}
+	printStudioCommandPreview(append([]string{"quickstart"}, args...)...)
 	if err := cmdQuickstart(args); err != nil {
 		return ws, err
 	}
@@ -324,13 +328,15 @@ func studioProviderAdd(reader *bufio.Reader, defaultWorkspace string) (string, e
 	if err != nil {
 		return ws, err
 	}
-	return ws, cmdProviderAdd([]string{
+	args := []string{
 		"--workspace", ws,
 		"--name", name,
 		"--model", model,
 		"--set-default",
 		"deepseek",
-	})
+	}
+	printStudioCommandPreview(append([]string{"provider", "add"}, args...)...)
+	return ws, cmdProviderAdd(args)
 }
 
 func studioAgentCreate(reader *bufio.Reader, state *studioState, defaultWorkspace string) (string, error) {
@@ -365,6 +371,7 @@ func studioAgentCreate(reader *bufio.Reader, state *studioState, defaultWorkspac
 		args = append(args, "--model", model)
 	}
 	args = append(args, name)
+	printStudioCommandPreview(append([]string{"agent", "create"}, args...)...)
 	if err := cmdAgentCreate(args); err != nil {
 		return ws, err
 	}
@@ -380,7 +387,9 @@ func studioValidate(reader *bufio.Reader, defaultWorkspace string) (string, erro
 	if err := requireInitializedWorkspace(ws); err != nil {
 		return defaultWorkspace, err
 	}
-	return ws, cmdValidate([]string{"--workspace", ws})
+	args := []string{"--workspace", ws}
+	printStudioCommandPreview(append([]string{"validate"}, args...)...)
+	return ws, cmdValidate(args)
 }
 
 func studioRun(reader *bufio.Reader, state *studioState, defaultWorkspace string) (string, error) {
@@ -411,6 +420,7 @@ func studioRun(reader *bufio.Reader, state *studioState, defaultWorkspace string
 	if strings.TrimSpace(input) != "" {
 		args = append(args, input)
 	}
+	printStudioCommandPreview(append([]string{"run"}, args...)...)
 	if err := cmdRun(args); err != nil {
 		return ws, err
 	}
@@ -451,6 +461,7 @@ func studioChat(reader *bufio.Reader, state *studioState, defaultWorkspace strin
 		args = append(args, "--session", sessionID)
 	}
 	args = append(args, spec)
+	printStudioCommandPreview(append([]string{"chat"}, args...)...)
 	if err := cmdChat(args); err != nil {
 		return ws, err
 	}
@@ -469,22 +480,49 @@ func studioReview(reader *bufio.Reader, defaultWorkspace string) (string, error)
 	if err := requireInitializedWorkspace(ws); err != nil {
 		return defaultWorkspace, err
 	}
+	fmt.Println("")
+	fmt.Println("Review")
+	fmt.Println("1) Run review")
+	fmt.Println("2) Trace review flow")
+	fmt.Println("3) Show working set")
+	action, err := promptLine(reader, "Review action", "1")
+	if err != nil {
+		return ws, err
+	}
+	action = strings.ToLower(strings.TrimSpace(action))
+	baseRef, err := promptLine(reader, "Base ref", "HEAD")
+	if err != nil {
+		return ws, err
+	}
 	focus, err := promptLine(reader, "Review focus (optional)", "")
 	if err != nil {
 		return ws, err
 	}
-	trace, err := promptYesNo(reader, "Show trace first?", false)
-	if err != nil {
-		return ws, err
-	}
-	args := []string{"--workspace", ws}
-	if trace {
-		args = append(args, "--trace")
-	}
+	args := []string{"--workspace", ws, "--base", strings.TrimSpace(baseRef)}
 	if strings.TrimSpace(focus) != "" {
 		args = append(args, focus)
 	}
-	return ws, cmdReview(args)
+	switch action {
+	case "1", "run":
+		printStudioCommandPreview(append([]string{"review"}, args...)...)
+		return ws, cmdReview(args)
+	case "2", "trace":
+		traceArgs := []string{"--workspace", ws, "--base", strings.TrimSpace(baseRef), "--trace"}
+		if strings.TrimSpace(focus) != "" {
+			traceArgs = append(traceArgs, focus)
+		}
+		printStudioCommandPreview(append([]string{"review"}, traceArgs...)...)
+		return ws, cmdReview(traceArgs)
+	case "3", "scope", "working", "working-set":
+		scopePreview := []string{"review", "--workspace", ws, "--base", strings.TrimSpace(baseRef), "--json"}
+		if strings.TrimSpace(focus) != "" {
+			scopePreview = append(scopePreview, focus)
+		}
+		printStudioCommandPreview(scopePreview...)
+		return ws, studioShowReviewWorkingSet(ws, strings.TrimSpace(baseRef), focus)
+	default:
+		return ws, fmt.Errorf("unknown review action %q", action)
+	}
 }
 
 func studioCommandList(reader *bufio.Reader) error {
@@ -496,6 +534,7 @@ func studioCommandList(reader *bufio.Reader) error {
 	if strings.TrimSpace(category) != "" {
 		args = append(args, "--category", category)
 	}
+	printStudioCommandPreview(append([]string{"command"}, args...)...)
 	return cmdCommand(args)
 }
 
@@ -512,6 +551,7 @@ func studioUpdate(reader *bufio.Reader) error {
 	if strings.EqualFold(strings.TrimSpace(checkOnlyText), "y") || strings.EqualFold(strings.TrimSpace(checkOnlyText), "yes") {
 		args = append(args, "--check")
 	}
+	printStudioCommandPreview(append([]string{"update"}, args...)...)
 	return cmdUpdate(args)
 }
 
@@ -571,12 +611,14 @@ func studioCalculatorStarter(reader *bufio.Reader, state *studioState, defaultWo
 	}
 	if !workspaceInitialized(ws) {
 		fmt.Println("Bootstrapping calculator workspace...")
-		if err := cmdQuickstart([]string{"--workspace", ws, "--agent", "guide", "--deepseek"}); err != nil {
+		quickstartArgs := []string{"--workspace", ws, "--agent", "guide", "--deepseek"}
+		printStudioCommandPreview(append([]string{"quickstart"}, quickstartArgs...)...)
+		if err := cmdQuickstart(quickstartArgs); err != nil {
 			return ws, err
 		}
 	}
 	fmt.Println("Configuring DeepSeek provider...")
-	if err := cmdProviderAdd([]string{
+	providerArgs := []string{
 		"--workspace", ws,
 		"--name", "deepseek",
 		"--model", "deepseek-chat",
@@ -584,17 +626,21 @@ func studioCalculatorStarter(reader *bufio.Reader, state *studioState, defaultWo
 		"--set-default",
 		"--force",
 		"deepseek",
-	}); err != nil {
+	}
+	printStudioCommandPreview(append([]string{"provider", "add"}, providerArgs...)...)
+	if err := cmdProviderAdd(providerArgs); err != nil {
 		return ws, err
 	}
 	fmt.Println("Installing calculator kit...")
-	if err := cmdKitAdd([]string{
+	kitArgs := []string{
 		"--workspace", ws,
 		"--provider-name", "deepseek",
 		"--model", "deepseek-chat",
 		"--set-default-provider",
 		"crud-next-multiverse",
-	}); err != nil {
+	}
+	printStudioCommandPreview(append([]string{"kit", "add"}, kitArgs...)...)
+	if err := cmdKitAdd(kitArgs); err != nil {
 		return ws, err
 	}
 	runNow, err := promptYesNo(reader, "Generate calculator now?", false)
@@ -608,7 +654,9 @@ func studioCalculatorStarter(reader *bufio.Reader, state *studioState, defaultWo
 		return ws, nil
 	}
 	prompt := "Crie uma calculadora fullstack com frontend Next.js, rotas API, controller/service, operacoes soma/subtracao/multiplicacao/divisao e testes basicos"
-	if err := cmdRun([]string{"--workspace", ws, "--multiverse", "0", "@crud_fullstack_multiverse", prompt}); err != nil {
+	runArgs := []string{"--workspace", ws, "--multiverse", "0", "@crud_fullstack_multiverse", prompt}
+	printStudioCommandPreview(append([]string{"run"}, runArgs...)...)
+	if err := cmdRun(runArgs); err != nil {
 		return ws, err
 	}
 	return ws, nil
@@ -693,4 +741,45 @@ func waitEnter(reader *bufio.Reader) error {
 	fmt.Print("\nPress Enter to continue...")
 	_, err := reader.ReadString('\n')
 	return err
+}
+
+func printStudioCommandPreview(args ...string) {
+	if len(args) == 0 {
+		return
+	}
+	line := "deeph " + renderChatExecArgs(args)
+	fmt.Printf("%s %s\n", uiMuted("about to run:"), uiAccent(line))
+}
+
+func studioShowReviewWorkingSet(workspace, baseRef, focus string) error {
+	p, abs, verr, err := loadAndValidate(workspace)
+	if err != nil {
+		return err
+	}
+	printValidation(verr)
+	if verr != nil && verr.HasErrors() {
+		return verr
+	}
+	cfg := reviewscope.DefaultConfig()
+	scope, err := reviewscope.BuildScope(abs, baseRef, cfg)
+	if err != nil {
+		return err
+	}
+	input := reviewscope.BuildInput(scope, focus, cfg)
+	promptTokens := reviewscope.EstimateTokens(input)
+	baseSpec := defaultReviewAgentSpec(p)
+	synthSpec := defaultReviewSynthSpec(p)
+	selectedSpecArg, useBuiltinFlow := resolveDefaultReviewTarget(abs, p, "")
+	displaySpec := reviewDisplaySpec(selectedSpecArg, baseSpec, synthSpec, useBuiltinFlow)
+
+	printReviewScope(scope, displaySpec, promptTokens)
+	if len(scope.WorkingSet) == 0 {
+		fmt.Println("  working_set_detail: (none)")
+		return nil
+	}
+	fmt.Println("  working_set_detail:")
+	for _, file := range scope.WorkingSet {
+		fmt.Printf("  - %s reason=%s\n", file.Path, file.Reason)
+	}
+	return nil
 }
