@@ -12,18 +12,14 @@ import (
 )
 
 type chatSessionMeta struct {
-	ID          string           `json:"id"`
-	AgentSpec   string           `json:"agent_spec"`
-	CreatedAt   time.Time        `json:"created_at"`
-	UpdatedAt   time.Time        `json:"updated_at"`
-	Turns       int              `json:"turns"`
-	PendingExec *chatPendingExec `json:"pending_exec,omitempty"`
-}
-
-type chatPendingExec struct {
-	Path    string   `json:"path"`
-	Args    []string `json:"args"`
-	Display string   `json:"display"`
+	ID                 string               `json:"id"`
+	AgentSpec          string               `json:"agent_spec"`
+	UIMode             string               `json:"ui_mode,omitempty"`
+	CreatedAt          time.Time            `json:"created_at"`
+	UpdatedAt          time.Time            `json:"updated_at"`
+	Turns              int                  `json:"turns"`
+	PendingExec        *deephCommand        `json:"pending_exec,omitempty"`
+	LastCommandReceipt *deephCommandReceipt `json:"last_command_receipt,omitempty"`
 }
 
 type chatSessionEntry struct {
@@ -105,6 +101,7 @@ func loadChatSessionMeta(workspace, id string) (*chatSessionMeta, error) {
 	if strings.TrimSpace(meta.ID) == "" {
 		meta.ID = id
 	}
+	meta.UIMode = normalizeChatUIMode(meta.UIMode)
 	return &meta, nil
 }
 
@@ -121,6 +118,7 @@ func saveChatSessionMeta(workspace string, meta *chatSessionMeta) error {
 	if meta.UpdatedAt.IsZero() {
 		meta.UpdatedAt = time.Now()
 	}
+	meta.UIMode = normalizeChatUIMode(meta.UIMode)
 	b, err := json.MarshalIndent(meta, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal session meta: %w", err)

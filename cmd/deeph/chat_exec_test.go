@@ -97,7 +97,7 @@ func TestDerivePendingExecFromGuideText(t *testing.T) {
 func TestMaybeHandlePendingExecReplyNegative(t *testing.T) {
 	meta := &chatSessionMeta{
 		AgentSpec: "guide",
-		PendingExec: &chatPendingExec{
+		PendingExec: &deephCommand{
 			Path:    "crud up",
 			Args:    []string{"crud", "up", "--workspace", "/tmp/workspace"},
 			Display: "deeph crud up --workspace /tmp/workspace",
@@ -115,5 +115,65 @@ func TestMaybeHandlePendingExecReplyNegative(t *testing.T) {
 	}
 	if !strings.Contains(replies[0].Text, "Nao executei") {
 		t.Fatalf("reply=%q", replies[0].Text)
+	}
+}
+
+func TestMaybeHandlePendingExecReplyAffirmativeRecordsReceipt(t *testing.T) {
+	meta := &chatSessionMeta{
+		AgentSpec: "guide",
+		PendingExec: &deephCommand{
+			Path:    "command list",
+			Args:    []string{"command", "list"},
+			Display: "deeph command list",
+		},
+	}
+
+	handled, replies, err := maybeHandlePendingExecReply(meta, "sim")
+	if err != nil {
+		t.Fatalf("pending reply: %v", err)
+	}
+	if !handled || len(replies) != 1 {
+		t.Fatalf("handled=%v replies=%d", handled, len(replies))
+	}
+	if meta.LastCommandReceipt == nil {
+		t.Fatalf("expected last command receipt to be recorded")
+	}
+	if meta.LastCommandReceipt.Command.Path != "command list" {
+		t.Fatalf("path=%q", meta.LastCommandReceipt.Command.Path)
+	}
+	if !meta.LastCommandReceipt.Success {
+		t.Fatalf("expected successful receipt, got %+v", *meta.LastCommandReceipt)
+	}
+	if !strings.Contains(replies[0].Text, "Executei `deeph command list`.") {
+		t.Fatalf("reply=%q", replies[0].Text)
+	}
+}
+
+func TestHandleChatExecSlashCommandSavesReceiptInSessionMeta(t *testing.T) {
+	ws := t.TempDir()
+	meta := &chatSessionMeta{
+		ID:        "exec-meta",
+		AgentSpec: "guide",
+	}
+	if err := saveChatSessionMeta(ws, meta); err != nil {
+		t.Fatalf("save session meta: %v", err)
+	}
+
+	if err := handleChatExecSlashCommand("/exec --yes deeph command list", ws, meta); err != nil {
+		t.Fatalf("handle /exec: %v", err)
+	}
+	if meta.LastCommandReceipt == nil {
+		t.Fatalf("expected last command receipt in memory")
+	}
+
+	loaded, err := loadChatSessionMeta(ws, meta.ID)
+	if err != nil {
+		t.Fatalf("load session meta: %v", err)
+	}
+	if loaded.LastCommandReceipt == nil {
+		t.Fatalf("expected last command receipt to be persisted")
+	}
+	if loaded.LastCommandReceipt.Command.Path != "command list" {
+		t.Fatalf("path=%q", loaded.LastCommandReceipt.Command.Path)
 	}
 }

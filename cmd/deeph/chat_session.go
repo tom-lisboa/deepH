@@ -64,19 +64,34 @@ func cmdChat(args []string) error {
 	sinkIdxs := chatSinkTaskIndexes(tasks)
 
 	if created {
-		fmt.Printf("Chat session created: %s\n", meta.ID)
+		printChatSessionIntro(true, meta, abs, len(entries))
 	} else {
-		fmt.Printf("Chat session resumed: %s\n", meta.ID)
+		printChatSessionIntro(false, meta, abs, len(entries))
 	}
-	fmt.Printf("Workspace: %s\n", abs)
-	fmt.Printf("Agent spec: %s\n", meta.AgentSpec)
-	fmt.Printf("History entries loaded: %d\n", len(entries))
-	fmt.Println("Commands: /help, /history, /trace, /exec, /exit")
+
+	actor := newChatSessionActor(chatSessionActorConfig{
+		Workspace:     abs,
+		ShowTrace:     *showTrace,
+		ShowCoach:     *showCoach,
+		HistoryTurns:  *historyTurns,
+		HistoryTokens: *historyTokens,
+		Plan:          plan,
+		Tasks:         tasks,
+		SinkIdxs:      sinkIdxs,
+		Engine:        eng,
+	}, meta, entries)
+	defer actor.Close()
 
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Buffer(make([]byte, 0, 64*1024), 2*1024*1024)
+	lastStatusBar := ""
 	for {
-		fmt.Print("you> ")
+		snap := actor.Snapshot()
+		if bar := buildChatStatusBar(&snap.Meta, plan); bar != "" && bar != lastStatusBar {
+			fmt.Println(bar)
+			lastStatusBar = bar
+		}
+		fmt.Print(renderChatPrompt(&snap.Meta))
 		if !scanner.Scan() {
 			if err := scanner.Err(); err != nil {
 				return err
@@ -88,78 +103,21 @@ func cmdChat(args []string) error {
 		if line == "" {
 			continue
 		}
-		if meta.PendingExec != nil {
-			if handled, replies, err := maybeHandlePendingExecReply(meta, line); err != nil {
-				fmt.Printf("error: %v\n", err)
-				continue
-			} else if handled {
-				printChatReplies(replies)
-				persistChatTurn(abs, meta, &entries, line, replies)
-				continue
-			}
+		progressCtx, cancelProgress := context.WithCancel(context.Background())
+		stopProgress := func() {}
+		if shouldShowChatProgress(*showCoach, &snap.Meta, line) {
+			stopProgress = startChatProgress(progressCtx, chatProgressLabel(&snap.Meta, line))
 		}
-		if strings.HasPrefix(line, "/") {
-			meta.PendingExec = nil
-			done, err := handleChatSlashCommand(line, abs, meta, entries, plan, tasks, sinkIdxs)
-			if err != nil {
-				fmt.Printf("error: %v\n", err)
-			}
-			if done {
-				return nil
-			}
-			continue
+		resCh := make(chan chatSessionActorTurnResult, 1)
+		go func(input string) {
+			resCh <- actor.ProcessLine(input)
+		}(line)
+		res := <-resCh
+		cancelProgress()
+		stopProgress()
+		if res.Done {
+			return nil
 		}
-		if localText, ok := maybeAnswerGuideLocally(abs, meta, line); ok {
-			meta.PendingExec = derivePendingExecFromGuideText(abs, localText)
-			if meta.PendingExec != nil {
-				localText = appendGuideExecCallToAction(localText)
-			}
-			replies := []chatReply{{Agent: meta.AgentSpec, Text: localText}}
-			printChatReplies(replies)
-			persistChatTurn(abs, meta, &entries, line, replies)
-			continue
-		}
-		meta.PendingExec = nil
-
-		if *showTrace {
-			printCompactChatPlan(plan, sinkIdxs)
-		}
-
-		input := buildChatTurnInput(meta, entries, line, *historyTurns, *historyTokens)
-		ctx := context.Background()
-		stopCoach := func() {}
-		if *showCoach {
-			stopCoach = startCoachHint(ctx, coachHintRequest{
-				Workspace:   abs,
-				CommandPath: "chat",
-				AgentSpec:   meta.AgentSpec,
-				Input:       input,
-				Plan:        &plan,
-				Tasks:       tasks,
-				InChat:      true,
-				ShowTrace:   *showTrace,
-				SessionID:   meta.ID,
-				Turn:        meta.Turns + 1,
-			})
-		}
-		report, err := eng.RunSpec(ctx, meta.AgentSpec, input)
-		stopCoach()
-		if err != nil {
-			fmt.Printf("error: %v\n", err)
-			continue
-		}
-		recordCoachRunSignals(abs, &plan, report)
-
-		replies := collectChatReplies(report, sinkIdxs)
-		if len(replies) == 0 {
-			fmt.Println("assistant> (no output)")
-			continue
-		}
-		printChatReplies(replies)
-		if *showCoach && meta.Turns == 0 {
-			maybePrintCoachPostRunHint(abs, "chat", &plan, report)
-		}
-		persistChatTurn(abs, meta, &entries, line, replies)
 	}
 }
 
@@ -169,18 +127,19 @@ func maybeHandlePendingExecReply(meta *chatSessionMeta, line string) (bool, []ch
 	}
 	switch {
 	case chatLooksAffirmative(line):
-		req := chatExecRequest{
+		req := deephCommand{
 			Path:      meta.PendingExec.Path,
 			Args:      append([]string{}, meta.PendingExec.Args...),
 			Display:   strings.TrimSpace(meta.PendingExec.Display),
 			Confirmed: true,
 		}
 		meta.PendingExec = nil
-		summary, err := executeChatExecRequest(req)
+		receipt, err := executeChatExecRequest(req)
+		recordLastCommandReceipt(meta, receipt)
 		if err != nil {
 			return true, []chatReply{{Agent: meta.AgentSpec, Error: err.Error()}}, nil
 		}
-		return true, []chatReply{{Agent: meta.AgentSpec, Text: summary}}, nil
+		return true, []chatReply{{Agent: meta.AgentSpec, Text: receipt.Summary}}, nil
 	case chatLooksNegative(line):
 		meta.PendingExec = nil
 		return true, []chatReply{{Agent: meta.AgentSpec, Text: "Nao executei o comando pendente."}}, nil
@@ -264,9 +223,20 @@ func cmdSessionShow(args []string) error {
 	}
 	fmt.Printf("session: %s\n", meta.ID)
 	fmt.Printf("agent_spec: %s\n", meta.AgentSpec)
+	fmt.Printf("ui_mode: %s\n", normalizeChatUIMode(meta.UIMode))
 	fmt.Printf("created_at: %s\n", meta.CreatedAt.Format(time.RFC3339))
 	fmt.Printf("updated_at: %s\n", meta.UpdatedAt.Format(time.RFC3339))
 	fmt.Printf("turns: %d\n", meta.Turns)
+	if meta.LastCommandReceipt != nil {
+		receipt := meta.LastCommandReceipt
+		fmt.Printf("last_command: %s success=%v finished_at=%s\n", receipt.Command.Display, receipt.Success, receipt.EndedAt.Format(time.RFC3339))
+		if receipt.Next != "" {
+			fmt.Printf("last_command_next: %s\n", receipt.Next)
+		}
+		if receipt.Error != "" {
+			fmt.Printf("last_command_error: %s\n", receipt.Error)
+		}
+	}
 	if *tail > 0 && len(entries) > *tail {
 		entries = entries[len(entries)-*tail:]
 	}
@@ -333,19 +303,33 @@ func printChatReplies(replies []chatReply) {
 	if len(replies) == 1 {
 		r := replies[0]
 		if r.Error != "" {
-			fmt.Printf("assistant(%s)> error: %s\n", r.Agent, r.Error)
+			fmt.Printf("%s %s\n", renderChatReplyPrefix(r.Agent, true), uiErrorText("error: "+r.Error))
 			return
 		}
-		fmt.Printf("assistant(%s)> %s\n", r.Agent, formatChatReplyForTerminal(r.Text))
+		body := renderChatReplyBody(r.Text)
+		if strings.HasPrefix(body, "\n") {
+			fmt.Printf("%s%s\n", renderChatReplyPrefix(r.Agent, false), body)
+			return
+		}
+		fmt.Printf("%s %s\n", renderChatReplyPrefix(r.Agent, false), body)
 		return
 	}
-	fmt.Printf("assistant> %d outputs\n", len(replies))
+	head := fmt.Sprintf("assistant> %d outputs", len(replies))
+	if stdoutThemeEnabled() {
+		head = uiAccent("assistant>") + " " + uiStrong(fmt.Sprintf("%d outputs", len(replies)))
+	}
+	fmt.Println(head)
 	for _, r := range replies {
 		if r.Error != "" {
-			fmt.Printf("[%s] error: %s\n", r.Agent, r.Error)
+			fmt.Printf("%s %s\n", uiBadge(r.Agent, "error"), uiErrorText("error: "+r.Error))
 			continue
 		}
-		fmt.Printf("[%s]\n%s\n", r.Agent, formatChatReplyForTerminal(r.Text))
+		body := renderChatReplyBody(r.Text)
+		if strings.HasPrefix(body, "\n") {
+			fmt.Printf("%s%s\n", uiBadge(r.Agent, "accent"), body)
+			continue
+		}
+		fmt.Printf("%s %s\n", uiBadge(r.Agent, "accent"), body)
 	}
 }
 
@@ -387,7 +371,55 @@ func chatSinkTaskIndexes(tasks []runtime.Task) []int {
 }
 
 func printCompactChatPlan(plan runtime.ExecutionPlan, sinkIdxs []int) {
-	fmt.Printf("[trace] spec=%q tasks=%d stages=%d parallel=%v sinks=%v\n", plan.Spec, len(plan.Tasks), len(plan.Stages), plan.Parallel, sinkIdxs)
+	prefix := "[trace]"
+	if stdoutThemeEnabled() {
+		prefix = uiBadge("trace", "accent")
+	}
+	fmt.Printf("%s spec=%q tasks=%d stages=%d parallel=%v sinks=%v\n", prefix, plan.Spec, len(plan.Tasks), len(plan.Stages), plan.Parallel, sinkIdxs)
+}
+
+func printChatStatus(meta *chatSessionMeta, plan runtime.ExecutionPlan, sinkIdxs []int) {
+	if meta == nil {
+		fmt.Println(uiBadge("status", "warn") + " session unavailable")
+		return
+	}
+	prefix := "[status]"
+	if stdoutThemeEnabled() {
+		prefix = uiBadge("status", "accent")
+	}
+	fmt.Printf("%s session=%s agent=%s turns=%d tasks=%d stages=%d parallel=%v sinks=%v\n", prefix, meta.ID, meta.AgentSpec, meta.Turns, len(plan.Tasks), len(plan.Stages), plan.Parallel, sinkIdxs)
+	fmt.Printf("%s ui_mode=%s\n", prefix, normalizeChatUIMode(meta.UIMode))
+	if meta.PendingExec != nil && strings.TrimSpace(meta.PendingExec.Display) != "" {
+		fmt.Printf("%s pending_exec=%s\n", prefix, meta.PendingExec.Display)
+	}
+	if meta.LastCommandReceipt != nil {
+		receipt := meta.LastCommandReceipt
+		fmt.Printf("%s last_command=%s success=%v\n", prefix, receipt.Command.Display, receipt.Success)
+		if receipt.Next != "" {
+			fmt.Printf("%s last_command_next=%s\n", prefix, receipt.Next)
+		}
+		if receipt.Error != "" {
+			fmt.Printf("%s last_command_error=%s\n", prefix, clipLine(receipt.Error, 180))
+		}
+	}
+}
+
+func chatPromptLabel(meta *chatSessionMeta) string {
+	if meta == nil {
+		return "you> "
+	}
+	agent := strings.TrimSpace(meta.AgentSpec)
+	if agent == "" {
+		agent = "chat"
+	}
+	sessionID := strings.TrimSpace(meta.ID)
+	if sessionID != "" && len(sessionID) > 18 {
+		sessionID = sessionID[:18]
+	}
+	if sessionID == "" {
+		return fmt.Sprintf("you[%s]> ", agent)
+	}
+	return fmt.Sprintf("you[%s|%s]> ", agent, sessionID)
 }
 
 func handleChatSlashCommand(line, workspace string, meta *chatSessionMeta, entries []chatSessionEntry, plan runtime.ExecutionPlan, tasks []runtime.Task, sinkIdxs []int) (done bool, err error) {
@@ -399,10 +431,41 @@ func handleChatSlashCommand(line, workspace string, meta *chatSessionMeta, entri
 	case cmd == "/help":
 		fmt.Println("Slash commands:")
 		fmt.Println("  /help    show this help")
+		fmt.Println("  /mode    show or change chat UI mode (full|compact|focus)")
+		fmt.Println("  /status  show compact session/runtime status")
 		fmt.Println("  /history show recent session entries")
 		fmt.Println("  /trace   show compact execution plan summary")
 		fmt.Println("  /exec    execute a deeph command inside this chat session")
 		fmt.Println("  /exit    end chat session")
+		return false, nil
+	case cmd == "/mode":
+		current := chatUIModeFull
+		if meta != nil {
+			current = normalizeChatUIMode(meta.UIMode)
+		}
+		fmt.Printf("[mode] %s\n", current)
+		return false, nil
+	case strings.HasPrefix(cmd, "/mode "):
+		if meta == nil {
+			return false, fmt.Errorf("chat session metadata unavailable")
+		}
+		rawMode := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(cmd, "/mode ")))
+		switch rawMode {
+		case chatUIModeFull, chatUIModeCompact, chatUIModeFocus:
+		default:
+			return false, fmt.Errorf("unknown chat ui mode %q (use full, compact, or focus)", rawMode)
+		}
+		meta.UIMode = rawMode
+		meta.UpdatedAt = time.Now()
+		if workspace != "" {
+			if err := saveChatSessionMeta(workspace, meta); err != nil {
+				return false, err
+			}
+		}
+		fmt.Printf("[mode] switched to %s\n", rawMode)
+		return false, nil
+	case cmd == "/status":
+		printChatStatus(meta, plan, sinkIdxs)
 		return false, nil
 	case cmd == "/trace":
 		printCompactChatPlan(plan, sinkIdxs)
@@ -425,9 +488,9 @@ func handleChatSlashCommand(line, workspace string, meta *chatSessionMeta, entri
 		}
 		return false, nil
 	case strings.HasPrefix(cmd, "/exec "):
-		return false, handleChatExecSlashCommand(cmd, workspace)
+		return false, handleChatExecSlashCommand(cmd, workspace, meta)
 	case cmd == "/exec":
-		return false, handleChatExecSlashCommand(cmd, workspace)
+		return false, handleChatExecSlashCommand(cmd, workspace, meta)
 	default:
 		return false, fmt.Errorf("unknown slash command %q", cmd)
 	}
@@ -440,7 +503,8 @@ func buildChatTurnInput(meta *chatSessionMeta, entries []chatSessionEntry, userM
 	}
 	selected := selectChatHistoryEntries(entries, historyTurns, historyTokens)
 	primer := buildChatCommandPrimer(meta, userMessage)
-	if len(selected) == 0 && primer == "" {
+	operational := buildChatOperationalState(meta)
+	if len(selected) == 0 && primer == "" && len(operational) == 0 {
 		return userMessage
 	}
 	lines := make([]string, 0, len(selected)+16)
@@ -448,6 +512,9 @@ func buildChatTurnInput(meta *chatSessionMeta, entries []chatSessionEntry, userM
 	lines = append(lines, "session_id: "+meta.ID)
 	if strings.TrimSpace(meta.AgentSpec) != "" {
 		lines = append(lines, "agent_spec: "+meta.AgentSpec)
+	}
+	if len(operational) > 0 {
+		lines = append(lines, operational...)
 	}
 	if primer != "" {
 		lines = append(lines, primer)
@@ -464,6 +531,36 @@ func buildChatTurnInput(meta *chatSessionMeta, entries []chatSessionEntry, userM
 	lines = append(lines, userMessage)
 	lines = append(lines, "instruction: continue the conversation, reuse prior context when relevant, avoid repeating previous answers.")
 	return strings.Join(lines, "\n")
+}
+
+func buildChatOperationalState(meta *chatSessionMeta) []string {
+	if meta == nil {
+		return nil
+	}
+	lines := make([]string, 0, 8)
+	if meta.Turns > 0 || meta.PendingExec != nil || meta.LastCommandReceipt != nil {
+		lines = append(lines, "[chat_operational_state]")
+	}
+	if meta.Turns > 0 {
+		lines = append(lines, fmt.Sprintf("turns: %d", meta.Turns))
+	}
+	if meta.PendingExec != nil && strings.TrimSpace(meta.PendingExec.Display) != "" {
+		lines = append(lines, "pending_exec: "+meta.PendingExec.Display)
+	}
+	if meta.LastCommandReceipt != nil {
+		receipt := meta.LastCommandReceipt
+		if strings.TrimSpace(receipt.Command.Display) != "" {
+			lines = append(lines, "last_command: "+receipt.Command.Display)
+			lines = append(lines, fmt.Sprintf("last_command_success: %v", receipt.Success))
+		}
+		if strings.TrimSpace(receipt.Next) != "" {
+			lines = append(lines, "last_command_next: "+receipt.Next)
+		}
+		if strings.TrimSpace(receipt.Error) != "" {
+			lines = append(lines, "last_command_error: "+clipLine(receipt.Error, 180))
+		}
+	}
+	return lines
 }
 
 type chatCommandIntent struct {

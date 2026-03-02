@@ -2,100 +2,59 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"deeph/internal/commanddoc"
 )
 
-type chatExecRequest struct {
-	Path      string
-	Args      []string
-	Display   string
-	Confirmed bool
+type deephCommand struct {
+	Path      string   `json:"path"`
+	Args      []string `json:"args"`
+	Display   string   `json:"display"`
+	Confirmed bool     `json:"confirmed,omitempty"`
 }
 
-func handleChatExecSlashCommand(line, workspace string) error {
-	req, err := parseChatExecLine(line, workspace)
+func handleChatExecSlashCommand(line, workspace string, meta *chatSessionMeta) error {
+	bus := newDeephCommandBus(workspace)
+	req, err := bus.ParseExecLine(line)
 	if err != nil {
 		return err
 	}
-	if chatExecRequiresConfirm(req.Path) && !req.Confirmed {
+	if bus.RequiresConfirm(req) && !req.Confirmed {
 		fmt.Println("confirmation required for this command. Re-run with:")
 		fmt.Printf("  /exec --yes %s\n", req.Display)
 		return nil
 	}
-	_, err = executeChatExecRequest(req)
+	receipt, err := executeChatExecRequest(req)
+	recordLastCommandReceipt(meta, receipt)
+	if meta != nil {
+		meta.UpdatedAt = time.Now()
+		if saveErr := saveChatSessionMeta(workspace, meta); saveErr != nil {
+			fmt.Printf("warning: failed to save session metadata: %v\n", saveErr)
+		}
+	}
 	return err
 }
 
-func executeChatExecRequest(req chatExecRequest) (string, error) {
-	fmt.Printf("[exec] %s\n", req.Display)
-	if err := run(req.Args); err != nil {
-		return "", err
-	}
-	summary := fmt.Sprintf("Executei `%s`.", req.Display)
-	if req.Path == "agent create" {
-		summary += " Agora abra o YAML do agent no VS Code, ajuste o arquivo e depois rode `deeph validate --workspace .`."
-	}
-	if next := chatExecDefaultNext(req.Path); next != "" {
-		fmt.Printf("[exec] next: /exec --yes %s\n", next)
-		if req.Path != "agent create" {
-			summary += " Proximo passo sugerido: `" + next + "`."
-		}
-	}
-	return summary, nil
+func executeChatExecRequest(req deephCommand) (deephCommandReceipt, error) {
+	return newDeephCommandBus("").Execute(req)
 }
 
-func parseChatExecLine(line, workspace string) (chatExecRequest, error) {
-	raw := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "/exec"))
-	if raw == "" {
-		return chatExecRequest{}, fmt.Errorf("usage: /exec [--yes] deeph <command>")
+func recordLastCommandReceipt(meta *chatSessionMeta, receipt deephCommandReceipt) {
+	if meta == nil {
+		return
 	}
-	tokens, err := chatSplitArgs(raw)
-	if err != nil {
-		return chatExecRequest{}, err
+	if receipt.StartedAt.IsZero() && receipt.EndedAt.IsZero() && receipt.Command.Path == "" && receipt.Command.Display == "" {
+		return
 	}
-	if len(tokens) == 0 {
-		return chatExecRequest{}, fmt.Errorf("usage: /exec [--yes] deeph <command>")
-	}
+	copyReceipt := receipt
+	meta.LastCommandReceipt = &copyReceipt
+}
 
-	confirmed := false
-	filtered := make([]string, 0, len(tokens))
-	for _, tok := range tokens {
-		if tok == "--yes" {
-			confirmed = true
-			continue
-		}
-		filtered = append(filtered, tok)
-	}
-	if len(filtered) == 0 {
-		return chatExecRequest{}, fmt.Errorf("usage: /exec [--yes] deeph <command>")
-	}
-	if strings.EqualFold(filtered[0], "deeph") {
-		filtered = filtered[1:]
-	}
-	if len(filtered) == 0 {
-		return chatExecRequest{}, fmt.Errorf("usage: /exec [--yes] deeph <command>")
-	}
-
-	path, pathLen, err := resolveChatExecPath(filtered)
-	if err != nil {
-		return chatExecRequest{}, err
-	}
-	if err := validateChatExecPath(path); err != nil {
-		return chatExecRequest{}, err
-	}
-
-	args := append([]string{}, filtered...)
-	args = augmentChatExecArgs(workspace, path, pathLen, args)
-	return chatExecRequest{
-		Path:      path,
-		Args:      args,
-		Display:   "deeph " + renderChatExecArgs(args),
-		Confirmed: confirmed,
-	}, nil
+func parseChatExecLine(line, workspace string) (deephCommand, error) {
+	return newDeephCommandBus(workspace).ParseExecLine(line)
 }
 
 func resolveChatExecPath(args []string) (string, int, error) {
@@ -160,19 +119,7 @@ func normalizeChatExecWorkspaceArgs(workspace string, args []string) []string {
 }
 
 func normalizeChatExecWorkspaceValue(workspace, value string) string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return workspace
-	}
-	if filepath.IsAbs(value) {
-		return value
-	}
-	joined := filepath.Join(workspace, value)
-	abs, err := filepath.Abs(joined)
-	if err != nil {
-		return joined
-	}
-	return abs
+	return newDeephCommandBus(workspace).normalizeWorkspaceValue(value)
 }
 
 func chatExecUsesWorkspace(path string) bool {
@@ -298,23 +245,8 @@ func chatSplitArgs(s string) ([]string, error) {
 	return out, nil
 }
 
-func derivePendingExecFromGuideText(workspace, text string) *chatPendingExec {
-	cmd := firstGuideCommand(text)
-	if strings.TrimSpace(cmd) == "" {
-		return nil
-	}
-	if strings.Contains(cmd, "<") || strings.Contains(cmd, ">") || strings.Contains(cmd, "...") {
-		return nil
-	}
-	req, err := parseChatExecLine("/exec "+cmd, workspace)
-	if err != nil {
-		return nil
-	}
-	return &chatPendingExec{
-		Path:    req.Path,
-		Args:    append([]string{}, req.Args...),
-		Display: req.Display,
-	}
+func derivePendingExecFromGuideText(workspace, text string) *deephCommand {
+	return newDeephCommandBus(workspace).ParseGuideCommand(text)
 }
 
 func firstGuideCommand(text string) string {

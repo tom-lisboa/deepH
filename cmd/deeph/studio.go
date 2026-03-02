@@ -97,13 +97,19 @@ func cmdStudio(args []string) error {
 func printStudioScreen(workspace string) {
 	status := collectStudioStatus(workspace)
 	fmt.Print("\033[2J\033[H")
-	fmt.Println("deepH STUDIO")
-	fmt.Println("==============")
-	fmt.Printf("workspace: %s\n", status.Workspace)
+	printStudioTitle()
+	fmt.Println(uiSectionTitle("Workspace"))
+	fmt.Printf("%s %s\n", uiMuted("current:"), status.Workspace)
+	if status.LatestSession != "" {
+		fmt.Printf("%s %s (%s)\n", uiMuted("latest session:"), status.LatestSession, status.LatestAgentSpec)
+	}
+	fmt.Println("")
+
+	fmt.Println(uiSectionTitle("Health"))
 	if !status.Initialized {
-		fmt.Printf("status: setup needed | binary in PATH: %s | sessions: %d\n", yesNo(status.BinaryDirOnPath), status.Sessions)
+		fmt.Printf("%s %s | binary in PATH: %s | sessions: %d\n", uiMuted("status:"), uiWarn("setup needed"), yesNo(status.BinaryDirOnPath), status.Sessions)
 	} else if status.LoadError != "" {
-		fmt.Printf("status: load error | binary in PATH: %s\n", yesNo(status.BinaryDirOnPath))
+		fmt.Printf("%s %s | binary in PATH: %s\n", uiMuted("status:"), uiErrorText("load error"), yesNo(status.BinaryDirOnPath))
 	} else {
 		keyStatus := "n/a"
 		providerLabel := status.DefaultProvider
@@ -113,27 +119,29 @@ func printStudioScreen(workspace string) {
 		if status.APIKeyEnv != "" {
 			keyStatus = status.APIKeyEnv + "=" + yesNo(status.APIKeySet)
 		}
-		fmt.Printf("status: ready | provider: %s | key: %s\n", providerLabel, keyStatus)
-		fmt.Printf("agents: %d | skills: %d | sessions: %d | validation issues: %d\n", status.Agents, status.Skills, status.Sessions, status.ValidationIssues)
-	}
-	if status.LatestSession != "" {
-		fmt.Printf("latest session: %s (%s)\n", status.LatestSession, status.LatestAgentSpec)
+		fmt.Printf("%s %s | provider: %s | key: %s\n", uiMuted("status:"), uiSuccess("ready"), providerLabel, keyStatus)
+		fmt.Printf("%s %d | %s %d | %s %d | %s %d\n", uiMuted("agents:"), status.Agents, uiMuted("skills:"), status.Skills, uiMuted("sessions:"), status.Sessions, uiMuted("validation:"), status.ValidationIssues)
 	}
 	fmt.Println("")
-	fmt.Println("1) Quickstart (DeepSeek)")
-	fmt.Println("2) Quickstart (local mock)")
-	fmt.Println("3) Provider add (DeepSeek)")
-	fmt.Println("4) Agent create")
-	fmt.Println("5) Validate workspace")
-	fmt.Println("6) Run once")
-	fmt.Println("7) Chat")
-	fmt.Println("8) Command dictionary")
-	fmt.Println("9) Update deeph")
-	fmt.Println("10) Help")
-	fmt.Println("11) Studio doctor")
-	fmt.Println("12) Calculator workspace")
-	fmt.Println("13) Switch workspace")
-	fmt.Println("0) Exit")
+	fmt.Println(uiSectionTitle("Actions"))
+	fmt.Println(formatStudioOption("1", "Quickstart (DeepSeek)"))
+	fmt.Println(formatStudioOption("2", "Quickstart (local mock)"))
+	fmt.Println(formatStudioOption("3", "Provider add (DeepSeek)"))
+	fmt.Println(formatStudioOption("4", "Agent create"))
+	fmt.Println(formatStudioOption("5", "Validate workspace"))
+	fmt.Println(formatStudioOption("6", "Run once"))
+	fmt.Println(formatStudioOption("7", "Chat"))
+	fmt.Println(formatStudioOption("8", "Command dictionary"))
+	fmt.Println(formatStudioOption("9", "Update deeph"))
+	fmt.Println(formatStudioOption("10", "Help"))
+	fmt.Println(formatStudioOption("11", "Studio doctor"))
+	fmt.Println(formatStudioOption("12", "Calculator workspace"))
+	fmt.Println(formatStudioOption("13", "Switch workspace"))
+	fmt.Println(formatStudioOption("0", "Exit"))
+	fmt.Println("")
+	fmt.Println(uiSectionTitle("Tips"))
+	fmt.Printf("%s %s\n", uiMuted("-"), "Use option 7 for iterative chat and option 11 for environment diagnostics.")
+	fmt.Printf("%s %s\n", uiMuted("-"), "Keep providers and agents clean with option 5 before larger runs.")
 	fmt.Println("")
 }
 
