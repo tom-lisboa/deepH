@@ -42,9 +42,12 @@ type chatSessionActorConfig struct {
 }
 
 type chatSessionActorState struct {
-	cfg     chatSessionActorConfig
-	meta    *chatSessionMeta
-	entries []chatSessionEntry
+	cfg           chatSessionActorConfig
+	meta          *chatSessionMeta
+	entries       []chatSessionEntry
+	entriesByTurn map[int][]chatSessionEntry
+	memory        *chatSessionMemory
+	promptCache   *chatPromptCache
 }
 
 func newChatSessionActor(cfg chatSessionActorConfig, meta *chatSessionMeta, entries []chatSessionEntry) *chatSessionActor {
@@ -53,10 +56,14 @@ func newChatSessionActor(cfg chatSessionActorConfig, meta *chatSessionMeta, entr
 		done:   make(chan struct{}),
 	}
 	state := chatSessionActorState{
-		cfg:     cfg,
-		meta:    cloneChatSessionMeta(meta),
-		entries: cloneChatSessionEntries(entries),
+		cfg:           cfg,
+		meta:          cloneChatSessionMeta(meta),
+		entries:       cloneChatSessionEntries(entries),
+		entriesByTurn: indexChatEntriesByTurn(entries),
+		promptCache:   &chatPromptCache{},
 	}
+	state.memory, _ = loadOrBuildChatSessionMemory(cfg.Workspace, state.meta, state.entriesByTurn, defaultChatMemoryConfig)
+	_ = saveChatSessionMemory(cfg.Workspace, state.meta.ID, state.memory)
 	go actor.loop(state)
 	return actor
 }
@@ -109,7 +116,9 @@ func (s *chatSessionActorState) processLine(line string) chatSessionActorTurnRes
 	if route.Kind == chatRouteHandled {
 		if len(route.Replies) > 0 {
 			printChatReplies(route.Replies)
+			before := len(s.entries)
 			persistChatTurn(s.cfg.Workspace, s.meta, &s.entries, line, route.Replies)
+			s.afterPersist(before)
 		}
 		return chatSessionActorTurnResult{Done: route.Done}
 	}
@@ -122,7 +131,7 @@ func (s *chatSessionActorState) processLine(line string) chatSessionActorTurnRes
 		return chatSessionActorTurnResult{}
 	}
 
-	input := buildChatTurnInput(s.meta, s.entries, line, s.cfg.HistoryTurns, s.cfg.HistoryTokens)
+	input := buildChatTurnInputCached(s.meta, s.memory, s.entries, line, s.cfg.HistoryTurns, s.cfg.HistoryTokens, s.promptCache)
 	ctx := context.Background()
 	stopCoach := func() {}
 	if s.cfg.ShowCoach {
@@ -157,8 +166,28 @@ func (s *chatSessionActorState) processLine(line string) chatSessionActorTurnRes
 	if s.cfg.ShowCoach && s.meta.Turns == 0 {
 		maybePrintCoachPostRunHint(s.cfg.Workspace, "chat", &s.cfg.Plan, report)
 	}
+	before := len(s.entries)
 	persistChatTurn(s.cfg.Workspace, s.meta, &s.entries, line, replies)
+	s.afterPersist(before)
 	return chatSessionActorTurnResult{}
+}
+
+func (s *chatSessionActorState) afterPersist(previousEntries int) {
+	if len(s.entries) > previousEntries {
+		s.entriesByTurn = appendIndexedChatEntries(s.entriesByTurn, s.entries[previousEntries:])
+	}
+	if s.memory == nil {
+		s.memory = newChatSessionMemory(defaultChatMemoryConfig)
+	}
+	changed := advanceChatSessionMemory(s.memory, s.entriesByTurn, s.meta.Turns, defaultChatMemoryConfig)
+	if refreshChatWorkingSet(s.memory, s.meta, s.entriesByTurn, s.meta.Turns, defaultChatMemoryConfig) {
+		changed = true
+	}
+	if changed {
+		if err := saveChatSessionMemory(s.cfg.Workspace, s.meta.ID, s.memory); err != nil {
+			fmt.Printf("warning: failed to save session memory: %v\n", err)
+		}
+	}
 }
 
 func cloneChatSessionMeta(meta *chatSessionMeta) *chatSessionMeta {

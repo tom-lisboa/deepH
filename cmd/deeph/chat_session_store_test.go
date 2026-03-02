@@ -76,6 +76,23 @@ func TestCmdSessionShowPrintsLastCommandReceipt(t *testing.T) {
 	if err := saveChatSessionMeta(ws, meta); err != nil {
 		t.Fatalf("save session meta: %v", err)
 	}
+	if err := saveChatSessionMemory(ws, meta.ID, &chatSessionMemory{
+		CompactedThroughTurn: 2,
+		RawTailTurns:         2,
+		WorkingSet: chatWorkingSet{
+			ActiveTopics:   []string{"configurar provider"},
+			OpenLoops:      []string{"next step: deeph validate --workspace ."},
+			PinnedCommands: []string{"deeph provider add", "deeph validate --workspace ."},
+		},
+		Episodes: []chatSessionEpisode{{
+			StartTurn:         1,
+			EndTurn:           2,
+			UserGoals:         []string{"configurar provider"},
+			AssistantOutcomes: []string{"indicou deeph provider add"},
+		}},
+	}); err != nil {
+		t.Fatalf("save session memory: %v", err)
+	}
 	if err := appendChatSessionEntries(ws, meta.ID, []chatSessionEntry{{
 		Turn:      1,
 		Role:      "assistant",
@@ -95,6 +112,10 @@ func TestCmdSessionShowPrintsLastCommandReceipt(t *testing.T) {
 	for _, want := range []string{
 		"session: show-receipt",
 		"ui_mode: compact",
+		"memory_episodes: 1 compacted_through_turn=2 raw_tail_turns=2",
+		"active_topics: configurar provider",
+		"open_loops: next step: deeph validate --workspace .",
+		"pinned_commands: deeph provider add | deeph validate --workspace .",
 		"last_command: deeph command list success=true",
 		"entries:",
 	} {

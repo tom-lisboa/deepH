@@ -44,6 +44,57 @@ func TestChatSessionActorProcessesLocalGuideTurnAndPersistsState(t *testing.T) {
 	}
 }
 
+func TestChatSessionActorPersistsCompactMemoryAfterTailBoundary(t *testing.T) {
+	ws := t.TempDir()
+	meta := &chatSessionMeta{
+		ID:        "actor-memory",
+		AgentSpec: "guide",
+	}
+	entries := []chatSessionEntry{
+		{Turn: 1, Role: "user", Text: "como configuro provider deepseek?"},
+		{Turn: 1, Role: "assistant", Agent: "guide", Text: "use `deeph provider add`."},
+		{Turn: 2, Role: "user", Text: "como valido o workspace?"},
+		{Turn: 2, Role: "assistant", Agent: "guide", Text: "rode `deeph validate`."},
+	}
+	meta.Turns = 2
+	if err := appendChatSessionEntries(ws, meta.ID, entries); err != nil {
+		t.Fatalf("append session entries: %v", err)
+	}
+
+	actor := newChatSessionActor(chatSessionActorConfig{
+		Workspace: ws,
+		Plan:      runtime.ExecutionPlan{},
+	}, meta, entries)
+	defer actor.Close()
+
+	captureStdout(t, func() {
+		res := actor.ProcessLine("como configuro o deepseek aqui?")
+		if res.Done {
+			t.Fatalf("did not expect actor to end session")
+		}
+	})
+
+	memory, err := loadChatSessionMemory(ws, meta.ID)
+	if err != nil {
+		t.Fatalf("load session memory: %v", err)
+	}
+	if memory.CompactedThroughTurn != 1 {
+		t.Fatalf("compacted_through_turn=%d", memory.CompactedThroughTurn)
+	}
+	if len(memory.Episodes) != 1 {
+		t.Fatalf("episodes=%d", len(memory.Episodes))
+	}
+	if len(memory.Episodes[0].Commands) == 0 || memory.Episodes[0].Commands[0] != "deeph provider add" {
+		t.Fatalf("unexpected commands: %+v", memory.Episodes[0].Commands)
+	}
+	if len(memory.WorkingSet.ActiveTopics) == 0 || memory.WorkingSet.ActiveTopics[0] != "como configuro o deepseek aqui?" {
+		t.Fatalf("unexpected active topics: %+v", memory.WorkingSet.ActiveTopics)
+	}
+	if len(memory.WorkingSet.OpenLoops) == 0 || !strings.Contains(memory.WorkingSet.OpenLoops[0], "confirm command:") {
+		t.Fatalf("unexpected open loops: %+v", memory.WorkingSet.OpenLoops)
+	}
+}
+
 func TestChatSessionActorProcessesExitSlashCommand(t *testing.T) {
 	actor := newChatSessionActor(chatSessionActorConfig{}, &chatSessionMeta{
 		ID:        "actor-exit",

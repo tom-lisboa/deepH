@@ -216,6 +216,10 @@ func cmdSessionShow(args []string) error {
 	if err != nil {
 		return err
 	}
+	memory, merr := loadChatSessionMemory(abs, meta.ID)
+	if merr != nil && !os.IsNotExist(merr) {
+		return merr
+	}
 	recordCoachCommandTransition(abs, "session show")
 	entries, err := loadChatSessionEntries(abs, meta.ID)
 	if err != nil {
@@ -227,6 +231,20 @@ func cmdSessionShow(args []string) error {
 	fmt.Printf("created_at: %s\n", meta.CreatedAt.Format(time.RFC3339))
 	fmt.Printf("updated_at: %s\n", meta.UpdatedAt.Format(time.RFC3339))
 	fmt.Printf("turns: %d\n", meta.Turns)
+	if memory != nil && len(memory.Episodes) > 0 {
+		fmt.Printf("memory_episodes: %d compacted_through_turn=%d raw_tail_turns=%d\n", len(memory.Episodes), memory.CompactedThroughTurn, memory.RawTailTurns)
+	}
+	if memory != nil {
+		if len(memory.WorkingSet.ActiveTopics) > 0 {
+			fmt.Printf("active_topics: %s\n", strings.Join(memory.WorkingSet.ActiveTopics, " | "))
+		}
+		if len(memory.WorkingSet.OpenLoops) > 0 {
+			fmt.Printf("open_loops: %s\n", strings.Join(memory.WorkingSet.OpenLoops, " | "))
+		}
+		if len(memory.WorkingSet.PinnedCommands) > 0 {
+			fmt.Printf("pinned_commands: %s\n", strings.Join(memory.WorkingSet.PinnedCommands, " | "))
+		}
+	}
 	if meta.LastCommandReceipt != nil {
 		receipt := meta.LastCommandReceipt
 		fmt.Printf("last_command: %s success=%v finished_at=%s\n", receipt.Command.Display, receipt.Success, receipt.EndedAt.Format(time.RFC3339))
@@ -496,15 +514,15 @@ func handleChatSlashCommand(line, workspace string, meta *chatSessionMeta, entri
 	}
 }
 
-func buildChatTurnInput(meta *chatSessionMeta, entries []chatSessionEntry, userMessage string, historyTurns, historyTokens int) string {
+func buildChatTurnInput(meta *chatSessionMeta, memory *chatSessionMemory, entries []chatSessionEntry, userMessage string, historyTurns, historyTokens int) string {
 	userMessage = strings.TrimSpace(userMessage)
 	if userMessage == "" {
 		return ""
 	}
-	selected := selectChatHistoryEntries(entries, historyTurns, historyTokens)
 	primer := buildChatCommandPrimer(meta, userMessage)
 	operational := buildChatOperationalState(meta)
-	if len(selected) == 0 && primer == "" && len(operational) == 0 {
+	memoryBlock, selected := buildChatPromptMemoryAndTail(memory, entries, historyTurns, historyTokens)
+	if len(selected) == 0 && primer == "" && len(operational) == 0 && memoryBlock == "" {
 		return userMessage
 	}
 	lines := make([]string, 0, len(selected)+16)
@@ -516,21 +534,54 @@ func buildChatTurnInput(meta *chatSessionMeta, entries []chatSessionEntry, userM
 	if len(operational) > 0 {
 		lines = append(lines, operational...)
 	}
+	if workingSet := buildChatWorkingSetBlock(memory); workingSet != "" {
+		lines = append(lines, workingSet)
+	}
+	if memoryBlock != "" {
+		lines = append(lines, memoryBlock)
+	}
 	if primer != "" {
 		lines = append(lines, primer)
 	}
-	lines = append(lines, "history:")
-	for _, e := range selected {
-		label := e.Role
-		if e.Agent != "" {
-			label += "(" + e.Agent + ")"
+	if len(selected) > 0 {
+		lines = append(lines, "history_tail:")
+		for _, e := range selected {
+			label := e.Role
+			if e.Agent != "" {
+				label += "(" + e.Agent + ")"
+			}
+			lines = append(lines, "- "+label+": "+clipLine(e.Text, 420))
 		}
-		lines = append(lines, "- "+label+": "+clipLine(e.Text, 420))
 	}
 	lines = append(lines, "current_user_message:")
 	lines = append(lines, userMessage)
-	lines = append(lines, "instruction: continue the conversation, reuse prior context when relevant, avoid repeating previous answers.")
+	lines = append(lines, "instruction: continue the conversation, prefer compact memory over replaying old turns, and avoid repeating previous answers.")
 	return strings.Join(lines, "\n")
+}
+
+func buildChatPromptMemoryAndTail(memory *chatSessionMemory, entries []chatSessionEntry, historyTurns, historyTokens int) (string, []chatSessionEntry) {
+	if historyTokens <= 0 {
+		return "", selectChatHistoryEntries(entries, historyTurns, historyTokens)
+	}
+	if memory == nil || len(memory.Episodes) == 0 {
+		return "", selectChatHistoryEntries(entries, historyTurns, historyTokens)
+	}
+	memoryBudget := historyTokens / 2
+	if memoryBudget < 120 {
+		memoryBudget = min(historyTokens, 120)
+	}
+	tailBudget := historyTokens - memoryBudget
+	if tailBudget < 120 {
+		tailBudget = min(historyTokens, 120)
+		memoryBudget = max(0, historyTokens-tailBudget)
+	}
+	memoryBlock := buildChatMemoryBlock(memory, memoryBudget)
+	rawTailTurns := historyTurns
+	if memory.RawTailTurns > 0 && (rawTailTurns <= 0 || memory.RawTailTurns < rawTailTurns) {
+		rawTailTurns = memory.RawTailTurns
+	}
+	selected := selectChatHistoryEntries(entries, rawTailTurns, tailBudget)
+	return memoryBlock, selected
 }
 
 func buildChatOperationalState(meta *chatSessionMeta) []string {
@@ -857,6 +908,13 @@ func persistChatTurn(workspace string, meta *chatSessionMeta, entries *[]chatSes
 
 func max(a, b int) int {
 	if a > b {
+		return a
+	}
+	return b
+}
+
+func min(a, b int) int {
+	if a < b {
 		return a
 	}
 	return b
