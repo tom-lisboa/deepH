@@ -22,17 +22,17 @@ It is an engine that loads your agents.
 
 ## Status
 
-MVP scaffold (working CLI) with:
+Current CLI/runtime status:
 
-- `init`
-- `run`
-- `validate`
-- `trace`
-- `agent create`
-- `skill list`
-- `skill add`
-- `type list`
-- `type explain`
+- `chat` with session persistence, local routing and `deeph-only` command execution
+- `review` with diff-aware Go working-set selection
+- official `reviewflow` crew with multiverse review + synth
+- `studio` with grouped flows, quick resume and review entrypoint
+- typed handoffs, context budgets and execution tracing
+
+Product/investigation summary:
+
+- [Estado do produto e investigacao do deepH](docs/PRODUCT_STATE_AND_INVESTIGATION.md)
 
 ## Project Layout
 
@@ -126,6 +126,7 @@ Detailed guide:
 ## Guided Walkthroughs
 
 - [Studio, Workspace e Chat no deepH](docs/STUDIO_MANUAL.md)
+- [Estado do produto e investigacao do deepH](docs/PRODUCT_STATE_AND_INVESTIGATION.md)
 - [CRUD com deepH](docs/CRUD.md)
 - [Stack opinativa do CRUD](docs/CRUD.md#stack-opinativa)
 - [Fluxo recomendado](docs/CRUD.md#fluxo-recomendado)
