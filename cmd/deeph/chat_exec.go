@@ -125,6 +125,7 @@ func normalizeChatExecWorkspaceValue(workspace, value string) string {
 func chatExecUsesWorkspace(path string) bool {
 	switch commanddoc.NormalizePath(path) {
 	case "init", "quickstart", "studio", "validate", "trace", "run",
+		"review",
 		"session list", "session show",
 		"crew list", "crew show",
 		"agent create",

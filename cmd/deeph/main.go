@@ -48,6 +48,8 @@ func run(args []string) error {
 		return cmdUpdate(args[1:])
 	case "validate":
 		return cmdValidate(args[1:])
+	case "review":
+		return cmdReview(args[1:])
 	case "trace":
 		return cmdTrace(args[1:])
 	case "run":
@@ -88,6 +90,7 @@ func printUsage() {
 	fmt.Println("  deeph studio [--workspace DIR]")
 	fmt.Println("  deeph update [--owner NAME] [--repo NAME] [--tag latest|vX.Y.Z] [--check]")
 	fmt.Println("  deeph validate [--workspace DIR]")
+	fmt.Println(`  deeph review [--workspace DIR] [--spec SPEC] [--base REF] [--trace] [--coach=false] [--json] [focus]`)
 	fmt.Println(`  deeph trace [--workspace DIR] [--json] [--multiverse N] "<agent|a+b|a>b|a+b>c|@crew|crew:name>" [input]`)
 	fmt.Println(`  deeph run [--workspace DIR] [--trace] [--coach=false] [--multiverse N] [--judge-agent SPEC] [--judge-max-output-chars N] "<agent|a+b|a>b|a+b>c|@crew|crew:name>" [input]`)
 	fmt.Println(`  deeph chat [--workspace DIR] [--session ID] [--history-turns N] [--history-tokens N] [--trace] [--coach=false] "<agent|a+b|a>b|a+b>c>"`)

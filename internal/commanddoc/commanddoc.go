@@ -181,6 +181,25 @@ var docs = []Doc{
 		},
 	},
 	{
+		Path:     "review",
+		Category: "execution",
+		Summary:  "Review the current git diff with a compact, Go-aware working set",
+		Usage: []string{
+			`deeph review [--workspace DIR] [--spec SPEC] [--base REF] [--trace] [--coach=false] [--json] [focus]`,
+		},
+		Examples: []string{
+			"deeph review",
+			`deeph review --trace "focus on regressions and missing tests"`,
+			"deeph review --spec reviewer",
+			"deeph review --json",
+		},
+		Notes: []string{
+			"Builds a compact review brief from the current git diff plus a Go-aware working set (same package, tests, local imports).",
+			"`--json` prints the generated scope and review input payload instead of running the agent.",
+			"Defaults to `reviewer` when present, otherwise falls back to `guide`.",
+		},
+	},
+	{
 		Path:     "trace",
 		Category: "execution",
 		Summary:  "Show execution plan, stages, channels and handoffs before running",
