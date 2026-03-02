@@ -126,6 +126,7 @@ func chatExecUsesWorkspace(path string) bool {
 	switch commanddoc.NormalizePath(path) {
 	case "init", "quickstart", "studio", "validate", "trace", "run",
 		"edit",
+		"diagnose",
 		"review",
 		"session list", "session show",
 		"crew list", "crew show",
@@ -143,7 +144,7 @@ func chatExecUsesWorkspace(path string) bool {
 
 func chatExecRequiresConfirm(path string) bool {
 	switch commanddoc.NormalizePath(path) {
-	case "help", "validate", "review", "trace",
+	case "help", "validate", "review", "trace", "diagnose",
 		"session list", "session show",
 		"crew list", "crew show",
 		"provider list",

@@ -122,6 +122,7 @@ func cmdQuickstart(args []string) error {
 	fmt.Println("Try:")
 	fmt.Printf("  deeph run %s \"hello\"\n", strings.TrimSpace(*agentName))
 	if strings.EqualFold(strings.TrimSpace(*agentName), "guide") {
+		fmt.Println("  deeph diagnose \"paste the error or stack trace\"")
 		fmt.Println("  deeph review")
 		fmt.Println("  deeph edit \"analyze and update the relevant file\"")
 	}
@@ -232,6 +233,7 @@ func ensureStarterCodePack(workspace, provider, model string, force bool) error 
 		create func(string, scaffold.AgentTemplateOptions) (string, error)
 	}{
 		{name: "coder", create: scaffold.CreateCoderStarterFile},
+		{name: "diagnoser", create: scaffold.CreateDiagnoserStarterFile},
 		{name: "reviewer", create: scaffold.CreateReviewerStarterFile},
 		{name: "review_synth", create: scaffold.CreateReviewSynthStarterFile},
 	}

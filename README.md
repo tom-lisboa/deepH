@@ -27,6 +27,8 @@ It is an engine that loads your agents.
 Current CLI/runtime status:
 
 - `chat` with session persistence, local routing and `deeph-only` command execution
+- `edit` as the focused code-change path through `coder`
+- `diagnose` as the focused error-analysis path through `diagnoser`
 - `review` with diff-aware Go working-set selection
 - official `reviewflow` crew with multiverse review + synth
 - `studio` with grouped flows, quick resume and review entrypoint
@@ -92,6 +94,8 @@ If your project is `jogo-da-velha`, go to that project folder and initialize `de
 cd /path/to/jogo-da-velha
 deeph quickstart --workspace . --deepseek
 export DEEPSEEK_API_KEY="sk-...your_real_key..."
+deeph diagnose "paste the error or stack trace"
+deeph edit "your requested change"
 deeph review
 deeph chat guide
 ```
@@ -118,9 +122,10 @@ Recommended first steps in any existing project:
 1. `cd` into the project you want to work on.
 2. Run `deeph quickstart --workspace . --deepseek`.
 3. Set `DEEPSEEK_API_KEY`.
-4. Run `deeph edit "your requested change"` to make a focused code change.
-5. Run `deeph review` to inspect current changes.
-6. Run `deeph chat guide` to orchestrate or discuss the project interactively.
+4. Run `deeph diagnose "error text"` when you have a panic, stderr, or failing output.
+5. Run `deeph edit "your requested change"` to make a focused code change.
+6. Run `deeph review` to inspect current changes.
+7. Run `deeph chat guide` to orchestrate or discuss the project interactively.
 
 If you prefer the guided menu instead of direct CLI:
 
@@ -143,7 +148,7 @@ set DEEPSEEK_API_KEY=sk-...your_real_key...
 Notes:
 
 - `quickstart` creates `deeph.yaml`, starter agents, starter skills, review crew, and validates the workspace.
-- In a fresh guide-based workspace, `quickstart` installs `coder`, `reviewer`, `review_synth`, `reviewflow`, `file_read_range`, and `file_write_safe`.
+- In a fresh guide-based workspace, `quickstart` installs `coder`, `diagnoser`, `reviewer`, `review_synth`, `reviewflow`, `file_read_range`, and `file_write_safe`.
 - If your project was initialized with an older `deepH`, rerun `deeph quickstart --workspace .` to install the new editing/review pack. `deeph update` updates the binary, not the agents already stored inside each project.
 - The starter `guide` is tuned to answer with exact `deeph` commands and can consult the built-in command dictionary when needed.
 - Use a real DeepSeek key; placeholders like `sk-CHAVE_NOVA_REAL` will return 401.
@@ -154,6 +159,8 @@ Notes:
 Inside a ready workspace:
 
 ```bash
+deeph diagnose "paste the failing output"
+deeph diagnose --fix "paste the failing output"
 deeph edit "implement the requested code change"
 deeph review
 deeph review --trace
@@ -164,6 +171,8 @@ deeph run guide "analyze this project"
 Recommended day-to-day loop:
 
 ```bash
+deeph diagnose "investigate the failing output"
+deeph diagnose --fix "investigate the failing output"
 deeph edit "make the code change"
 deeph review
 deeph chat guide

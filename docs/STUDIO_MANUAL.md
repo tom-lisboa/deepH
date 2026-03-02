@@ -114,6 +114,7 @@ Exemplo: se o seu projeto se chama `jogo-da-velha`, use essa pasta como workspac
 cd /caminho/jogo-da-velha
 deeph quickstart --workspace . --deepseek
 export DEEPSEEK_API_KEY="sk-...sua_chave..."
+deeph diagnose "cole o erro ou stack trace"
 deeph edit "sua mudanca"
 deeph review
 deeph chat guide
@@ -131,9 +132,10 @@ Em outras palavras:
 1. entre no projeto que voce quer usar
 2. rode `deeph quickstart --workspace . --deepseek`
 3. configure `DEEPSEEK_API_KEY`
-4. rode `deeph edit "sua mudanca"`
-5. rode `deeph review`
-6. rode `deeph chat guide`
+4. rode `deeph diagnose "erro ou stack trace"` quando houver uma falha
+5. rode `deeph edit "sua mudanca"`
+6. rode `deeph review`
+7. rode `deeph chat guide`
 
 O `quickstart` cria a estrutura do `deepH` dentro do proprio projeto:
 
@@ -161,6 +163,7 @@ deeph quickstart --workspace .
 Isso instala ou completa o pack minimo:
 
 - `coder`
+- `diagnoser`
 - `reviewer`
 - `review_synth`
 - `reviewflow`
@@ -406,12 +409,15 @@ deeph chat --workspace "$env:USERPROFILE\deeph-workspace" guide
 Hoje, o fluxo opinativo do produto e este:
 
 1. `guide` para orquestracao
-2. `edit` para ajuste de codigo
-3. `review` para validacao
+2. `diagnose` para analisar erro e apontar causa provavel
+3. `edit` para ajuste de codigo
+4. `review` para validacao
 
 Exemplo dentro de um projeto preparado:
 
 ```bash
+deeph diagnose "panic: nil pointer em cmd/main.go:12"
+deeph diagnose --fix "panic: nil pointer em cmd/main.go:12"
 deeph edit "analise cmd/main.go e adicione duas funcoes"
 deeph review
 deeph chat guide
@@ -419,6 +425,8 @@ deeph chat guide
 
 O que cada etapa faz:
 
+- `deeph diagnose` e o atalho principal para o agent `diagnoser`
+- `deeph diagnose --fix` usa o diagnostico como contexto de follow-up e encadeia um `deeph edit` com confirmacao
 - `deeph edit` e o atalho principal para o agent `coder`
 - `deeph review` monta um escopo diff-aware e roda o fluxo de revisao
 - `deeph chat guide` ajuda a escolher o proximo passo, bootstrapar capacidades faltantes e pedir confirmacao antes de executar comandos `deeph` dentro do chat
@@ -429,7 +437,7 @@ Se o workspace ainda nao tiver o pack minimo de codigo, o `guide` consegue:
 2. propor o bootstrap
 3. pedir sua confirmacao
 4. executar o bootstrap
-5. pedir confirmacao de novo para rodar `deeph edit ...` ou `deeph run reviewer ...`
+5. pedir confirmacao de novo para rodar `deeph diagnose ...`, `deeph edit ...` ou `deeph run reviewer ...`
 
 Isso mantem a execucao restrita a comandos `deeph`, sem abrir shell generico dentro do chat.
 

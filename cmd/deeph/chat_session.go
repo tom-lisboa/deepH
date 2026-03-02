@@ -658,6 +658,7 @@ var chatCommandIntents = []chatCommandIntent{
 	{Keywords: []string{"crud", "cadastro", "relacional", "postgres", "mysql", "sqlite", "docker", "compose", "container"}, Paths: []string{"crud init", "crud trace", "crud run", "crud up", "crud smoke", "crud down"}},
 	{Keywords: []string{"workspace", "projeto", "project"}, Paths: []string{"quickstart", "validate", "studio"}},
 	{Keywords: []string{"provider", "deepseek", "api key", "modelo", "model"}, Paths: []string{"provider add", "provider list"}},
+	{Keywords: []string{"erro", "error", "panic", "stack trace", "stderr", "debug", "falhou"}, Paths: []string{"diagnose", "review", "edit"}},
 	{Keywords: []string{"skill", "ferramenta", "tool"}, Paths: []string{"skill list", "skill add"}},
 	{Keywords: []string{"agent", "agente"}, Paths: []string{"agent create", "run", "chat"}},
 	{Keywords: []string{"crew", "multiverse", "universo"}, Paths: []string{"crew list", "crew show", "trace", "run"}},

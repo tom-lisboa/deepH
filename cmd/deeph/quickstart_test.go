@@ -20,6 +20,7 @@ func TestQuickstartInstallsCodeAndReviewStartersForGuide(t *testing.T) {
 		"skills/file_write_safe.yaml",
 		"agents/guide.yaml",
 		"agents/coder.yaml",
+		"agents/diagnoser.yaml",
 		"agents/reviewer.yaml",
 		"agents/review_synth.yaml",
 		"crews/reviewflow.yaml",

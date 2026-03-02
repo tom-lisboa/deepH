@@ -145,3 +145,26 @@ func TestMaybeAnswerGuideLocallyCodeWorkflowUsesReviewerForReviewIntent(t *testi
 		t.Fatalf("expected reviewer run command, got:\n%s", got)
 	}
 }
+
+func TestMaybeAnswerGuideLocallyCodeWorkflowUsesDiagnoseForErrorIntent(t *testing.T) {
+	meta := &chatSessionMeta{ID: "s8", AgentSpec: "guide"}
+	ws := t.TempDir()
+	if err := os.WriteFile(filepath.Join(ws, "deeph.yaml"), []byte("version: 1\n"), 0o644); err != nil {
+		t.Fatalf("write deeph.yaml: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(ws, "agents"), 0o755); err != nil {
+		t.Fatalf("mkdir agents: %v", err)
+	}
+	diagnoser := "name: diagnoser\ndescription: test\nprovider: local_mock\nmodel: mock-small\nsystem_prompt: |\n  test\nskills:\n  - file_read_range\n"
+	if err := os.WriteFile(filepath.Join(ws, "agents", "diagnoser.yaml"), []byte(diagnoser), 0o644); err != nil {
+		t.Fatalf("write diagnoser agent: %v", err)
+	}
+
+	got, ok := maybeAnswerGuideLocally(ws, meta, "analise este panic: nil pointer em cmd/main.go:12")
+	if !ok {
+		t.Fatalf("expected local guide diagnose workflow answer")
+	}
+	if !strings.Contains(got, "deeph diagnose --workspace .") {
+		t.Fatalf("expected diagnose command, got:\n%s", got)
+	}
+}

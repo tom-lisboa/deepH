@@ -71,6 +71,21 @@ func TestParseChatExecLineSupportsEditShortcut(t *testing.T) {
 	}
 }
 
+func TestParseChatExecLineSupportsDiagnoseShortcut(t *testing.T) {
+	req, err := parseChatExecLine(`/exec deeph diagnose "panic in cmd/main.go:12"`, "/tmp/workspace")
+	if err != nil {
+		t.Fatalf("parse exec line: %v", err)
+	}
+	if req.Path != "diagnose" {
+		t.Fatalf("path=%q", req.Path)
+	}
+	got := strings.Join(req.Args, "|")
+	want := "diagnose|--workspace|/tmp/workspace|panic in cmd/main.go:12"
+	if got != want {
+		t.Fatalf("args=%q want=%q", got, want)
+	}
+}
+
 func TestParseChatExecLineRequiresKnownCommand(t *testing.T) {
 	if _, err := parseChatExecLine(`/exec deeph made up command`, "/tmp/workspace"); err == nil {
 		t.Fatalf("expected unknown command error")
@@ -86,6 +101,9 @@ func TestParseChatExecLineBlocksNestedChat(t *testing.T) {
 func TestChatExecRequiresConfirm(t *testing.T) {
 	if chatExecRequiresConfirm("crud trace") {
 		t.Fatalf("expected crud trace to be read-only")
+	}
+	if chatExecRequiresConfirm("diagnose") {
+		t.Fatalf("expected diagnose to be read-only")
 	}
 	if !chatExecRequiresConfirm("crud up") {
 		t.Fatalf("expected crud up to require confirmation")

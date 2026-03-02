@@ -78,6 +78,9 @@ func buildGuideCapabilityFollowup(workspace, norm, userMessage string) *deephCom
 	if agent == "coder" {
 		commandLine = `/exec deeph edit --workspace . ` + strconv.Quote(strings.TrimSpace(userMessage))
 	}
+	if agent == "diagnoser" {
+		commandLine = `/exec deeph diagnose --workspace . ` + strconv.Quote(strings.TrimSpace(userMessage))
+	}
 	cmd, err := parseChatExecLine(commandLine, workspace)
 	if err != nil {
 		return nil
@@ -86,10 +89,14 @@ func buildGuideCapabilityFollowup(workspace, norm, userMessage string) *deephCom
 }
 
 func guidePlannedCodeAgent(norm string) string {
-	if guideDetectCodeIntent(norm) == guideCodeIntentReview {
+	switch guideDetectCodeIntent(norm) {
+	case guideCodeIntentDiagnose:
+		return "diagnoser"
+	case guideCodeIntentReview:
 		return "reviewer"
+	default:
+		return "coder"
 	}
-	return "coder"
 }
 
 func guideCapabilityFollowupSummary(norm string, cmd *deephCommand) string {
@@ -97,6 +104,8 @@ func guideCapabilityFollowupSummary(norm string, cmd *deephCommand) string {
 		return "executar o proximo passo proposto"
 	}
 	switch {
+	case strings.Contains(cmd.Display, " diagnose "):
+		return "rodar o `diagnoser` com a sua instrucao atual, cruzando o erro com os arquivos mais provaveis do workspace"
 	case strings.Contains(cmd.Display, " reviewer "):
 		return "rodar o `reviewer` com a sua instrucao atual, lendo os arquivos necessarios para apontar riscos, regressao e gaps de teste"
 	default:
@@ -113,6 +122,7 @@ func formatGuideCapabilityPlanReply(plan *chatPendingPlan) string {
 		"",
 		"Isso vai instalar ou completar estas capacidades:",
 		"- `coder`: editar codigo com leitura por faixa e escrita segura",
+		"- `diagnoser`: analisar erros, panics e saidas falhas com escopo compacto do workspace",
 		"- `reviewer`: revisar codigo e apontar riscos concretos",
 		"- `review_synth` + `reviewflow`: consolidar revisoes diff-aware",
 		"",

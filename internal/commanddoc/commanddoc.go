@@ -202,6 +202,26 @@ var docs = []Doc{
 		},
 	},
 	{
+		Path:     "diagnose",
+		Category: "execution",
+		Summary:  "Analyze an error, panic, stack trace, or failing output against a compact workspace scope",
+		Usage: []string{
+			`deeph diagnose [--workspace DIR] [--spec SPEC] [--base REF] [--trace] [--coach=false] [--fix] [--yes] [--json] [--file PATH] [issue]`,
+		},
+		Examples: []string{
+			`deeph diagnose "panic: nil pointer dereference in cmd/main.go:42"`,
+			`go test ./... 2>&1 | deeph diagnose`,
+			`deeph diagnose --file /tmp/build.log`,
+			`deeph diagnose --fix "panic: nil pointer dereference in cmd/main.go:42"`,
+		},
+		Notes: []string{
+			"Builds a compact workspace scope from referenced files in the error text plus a small same-package expansion.",
+			"If `diagnoser` exists, it is the default agent; otherwise falls back to `reviewer` and then `guide`.",
+			"`--json` prints the generated diagnose scope and payload instead of running the agent.",
+			"`--fix` proposes a follow-up `deeph edit`; add `--yes` to run that edit immediately after diagnosis.",
+		},
+	},
+	{
 		Path:     "edit",
 		Category: "execution",
 		Summary:  "Run the default `coder` agent with a focused code-editing task",

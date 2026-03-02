@@ -39,9 +39,13 @@ func maybeAnswerGuideCodeWorkflow(workspace, norm, userMessage string) (string, 
 	if agent := guideSuggestedCodeAgent(agents, norm); agent != "" {
 		actionSummary := "ler os arquivos necessarios e responder de forma objetiva"
 		command := fmt.Sprintf("deeph run --workspace . %s %s", agent, strconv.Quote(strings.TrimSpace(userMessage)))
-		if strings.EqualFold(strings.TrimSpace(agent), "coder") {
+		switch strings.ToLower(strings.TrimSpace(agent)) {
+		case "coder":
 			actionSummary = "ler os arquivos necessarios, aplicar uma edicao focada e resumir riscos residuais"
 			command = fmt.Sprintf("deeph edit --workspace . %s", strconv.Quote(strings.TrimSpace(userMessage)))
+		case "diagnoser":
+			actionSummary = "analisar o erro, separar evidencia de hipotese e apontar a correcao minima mais segura"
+			command = fmt.Sprintf("deeph diagnose --workspace . %s", strconv.Quote(strings.TrimSpace(userMessage)))
 		}
 		return formatLocalGuideReply(
 			"O `guide` deste chat e focado na operacao do `deepH`. Para analisar ou implementar codigo de verdade no workspace, o caminho certo agora e executar o agent certo com a sua instrucao atual.",
@@ -69,7 +73,7 @@ func localGuideLooksCodeRequest(norm, raw string) bool {
 	if containsAny(norm, "qual comando", "quais comandos", "como eu", "como faco", "como faço", "como uso", "como rodar", "como configurar", "provider", "deepseek", "workspace", "crew", "session", "chat", "trace", "validate", "agent", "agente") {
 		return false
 	}
-	if containsAny(norm, "analise", "analisar", "analisa", "revise", "review", "explique", "explica", "sugira", "sugerir", "implemente", "implementa", "adicione", "adicionar", "funcao", "função", "function", "arquivo", "file", "codigo", "código", "main.go", "main.py") {
+	if containsAny(norm, "analise", "analisar", "analisa", "revise", "review", "explique", "explica", "sugira", "sugerir", "implemente", "implementa", "adicione", "adicionar", "funcao", "função", "function", "arquivo", "file", "codigo", "código", "main.go", "main.py", "panic", "stack trace", "stderr", "erro", "error", "falhou", "build failed", "test failed") {
 		return true
 	}
 	raw = strings.TrimSpace(raw)
@@ -96,12 +100,17 @@ func guideSuggestedCodeAgent(agents []string, norm string) string {
 			return agent
 		}
 		return ""
+	case guideCodeIntentDiagnose:
+		if agent := containsAgent("diagnoser", "reviewer", "coder"); agent != "" {
+			return agent
+		}
+		return ""
 	case guideCodeIntentReview:
 		if agent := containsAgent("reviewer", "review_synth", "coder"); agent != "" {
 			return agent
 		}
 	default:
-		if agent := containsAgent("coder", "reviewer", "review_synth"); agent != "" {
+		if agent := containsAgent("coder", "diagnoser", "reviewer", "review_synth"); agent != "" {
 			return agent
 		}
 	}
@@ -111,9 +120,10 @@ func guideSuggestedCodeAgent(agents []string, norm string) string {
 type guideCodeIntent string
 
 const (
-	guideCodeIntentEdit    guideCodeIntent = "edit"
-	guideCodeIntentReview  guideCodeIntent = "review"
-	guideCodeIntentAnalyze guideCodeIntent = "analyze"
+	guideCodeIntentEdit     guideCodeIntent = "edit"
+	guideCodeIntentDiagnose guideCodeIntent = "diagnose"
+	guideCodeIntentReview   guideCodeIntent = "review"
+	guideCodeIntentAnalyze  guideCodeIntent = "analyze"
 )
 
 func guideDetectCodeIntent(norm string) guideCodeIntent {
@@ -127,9 +137,16 @@ func guideDetectCodeIntent(norm string) guideCodeIntent {
 		"riscos", "risk", "bug", "bugs", "falha", "falhas", "teste faltando", "testes faltando",
 		"gaps de teste", "missing tests", "diff", "mudancas locais", "mudanças locais", "pull request", "pr",
 	)
+	diagnoseSignals := containsAny(norm,
+		"panic", "stack trace", "traceback", "stderr", "exception", "erro", "error", "falhou",
+		"build failed", "test failed", "compilation failed", "compilacao falhou", "compilação falhou",
+		"nil pointer", "segmentation fault", "segfault", "undefined", "syntax error",
+	)
 	switch {
 	case editSignals:
 		return guideCodeIntentEdit
+	case diagnoseSignals:
+		return guideCodeIntentDiagnose
 	case reviewSignals:
 		return guideCodeIntentReview
 	default:
