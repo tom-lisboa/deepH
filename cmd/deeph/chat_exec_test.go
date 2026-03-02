@@ -56,6 +56,21 @@ func TestParseChatExecLineHandlesQuotes(t *testing.T) {
 	}
 }
 
+func TestParseChatExecLineSupportsEditShortcut(t *testing.T) {
+	req, err := parseChatExecLine(`/exec deeph edit "add two helper functions"`, "/tmp/workspace")
+	if err != nil {
+		t.Fatalf("parse exec line: %v", err)
+	}
+	if req.Path != "edit" {
+		t.Fatalf("path=%q", req.Path)
+	}
+	got := strings.Join(req.Args, "|")
+	want := "edit|--workspace|/tmp/workspace|add two helper functions"
+	if got != want {
+		t.Fatalf("args=%q want=%q", got, want)
+	}
+}
+
 func TestParseChatExecLineRequiresKnownCommand(t *testing.T) {
 	if _, err := parseChatExecLine(`/exec deeph made up command`, "/tmp/workspace"); err == nil {
 		t.Fatalf("expected unknown command error")
@@ -145,6 +160,76 @@ func TestMaybeHandlePendingExecReplyAffirmativeRecordsReceipt(t *testing.T) {
 		t.Fatalf("expected successful receipt, got %+v", *meta.LastCommandReceipt)
 	}
 	if !strings.Contains(replies[0].Text, "Executei `deeph command list`.") {
+		t.Fatalf("reply=%q", replies[0].Text)
+	}
+}
+
+func TestMaybeHandlePendingPlanReplyNegative(t *testing.T) {
+	meta := &chatSessionMeta{
+		AgentSpec: "guide",
+		PendingPlan: &chatPendingPlan{
+			Kind:    "bootstrap_code_capabilities",
+			Summary: "prepare workspace for code",
+			Commands: []deephCommand{{
+				Path:    "command list",
+				Args:    []string{"command", "list"},
+				Display: "deeph command list",
+			}},
+		},
+	}
+
+	handled, replies, err := maybeHandlePendingPlanReply(meta, "nao")
+	if err != nil {
+		t.Fatalf("pending plan reply: %v", err)
+	}
+	if !handled || len(replies) != 1 {
+		t.Fatalf("handled=%v replies=%d", handled, len(replies))
+	}
+	if meta.PendingPlan != nil {
+		t.Fatalf("expected pending plan to be cleared")
+	}
+	if !strings.Contains(replies[0].Text, "Nao executei o plano") {
+		t.Fatalf("reply=%q", replies[0].Text)
+	}
+}
+
+func TestMaybeHandlePendingPlanReplyAffirmativeSetsFollowup(t *testing.T) {
+	meta := &chatSessionMeta{
+		AgentSpec: "guide",
+		PendingPlan: &chatPendingPlan{
+			Kind:    "bootstrap_code_capabilities",
+			Summary: "prepare workspace for code",
+			Commands: []deephCommand{{
+				Path:    "command list",
+				Args:    []string{"command", "list"},
+				Display: "deeph command list",
+			}},
+			Followup: &deephCommand{
+				Path:    "command list",
+				Args:    []string{"command", "list"},
+				Display: "deeph command list",
+			},
+			FollowupSummary: "rodar o proximo passo",
+		},
+	}
+
+	handled, replies, err := maybeHandlePendingPlanReply(meta, "sim")
+	if err != nil {
+		t.Fatalf("pending plan reply: %v", err)
+	}
+	if !handled || len(replies) != 1 {
+		t.Fatalf("handled=%v replies=%d", handled, len(replies))
+	}
+	if meta.PendingPlan != nil {
+		t.Fatalf("expected pending plan to be cleared")
+	}
+	if meta.PendingExec == nil || meta.PendingExec.Path != "command list" {
+		t.Fatalf("expected followup pending exec, got %+v", meta.PendingExec)
+	}
+	if meta.LastCommandReceipt == nil || !meta.LastCommandReceipt.Success {
+		t.Fatalf("expected successful receipt, got %+v", meta.LastCommandReceipt)
+	}
+	if !strings.Contains(replies[0].Text, "Agora posso executar este proximo passo") {
 		t.Fatalf("reply=%q", replies[0].Text)
 	}
 }

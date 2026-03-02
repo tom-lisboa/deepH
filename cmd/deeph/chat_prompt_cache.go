@@ -119,6 +119,18 @@ func chatOperationalBlockKey(meta *chatSessionMeta) string {
 	b.WriteString(meta.AgentSpec)
 	b.WriteString("|")
 	b.WriteString(fmt.Sprintf("%d", meta.Turns))
+	if meta.PendingPlan != nil {
+		b.WriteString("|plan:")
+		b.WriteString(meta.PendingPlan.Summary)
+		if len(meta.PendingPlan.Commands) > 0 {
+			b.WriteString("|plan_first:")
+			b.WriteString(meta.PendingPlan.Commands[0].Display)
+		}
+		if meta.PendingPlan.Followup != nil {
+			b.WriteString("|plan_followup:")
+			b.WriteString(meta.PendingPlan.Followup.Display)
+		}
+	}
 	if meta.PendingExec != nil {
 		b.WriteString("|pending:")
 		b.WriteString(meta.PendingExec.Display)

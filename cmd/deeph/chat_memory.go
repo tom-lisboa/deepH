@@ -432,6 +432,17 @@ func computeChatWorkingSet(meta *chatSessionMeta, entriesByTurn map[int][]chatSe
 	}
 
 	if meta != nil {
+		if meta.PendingPlan != nil {
+			if strings.TrimSpace(meta.PendingPlan.Summary) != "" {
+				appendRecentUniqueClipped(&ws.OpenLoops, []string{"confirm plan: " + meta.PendingPlan.Summary}, cfg.MaxOpenLoops, 140)
+			}
+			if len(meta.PendingPlan.Commands) > 0 && strings.TrimSpace(meta.PendingPlan.Commands[0].Display) != "" {
+				appendRecentUniqueClipped(&ws.PinnedCommands, []string{meta.PendingPlan.Commands[0].Display}, cfg.MaxPinnedCommands, 120)
+			}
+			if meta.PendingPlan.Followup != nil && strings.TrimSpace(meta.PendingPlan.Followup.Display) != "" {
+				appendRecentUniqueClipped(&ws.OpenLoops, []string{"planned next step: " + meta.PendingPlan.Followup.Display}, cfg.MaxOpenLoops, 140)
+			}
+		}
 		if meta.PendingExec != nil && strings.TrimSpace(meta.PendingExec.Display) != "" {
 			appendRecentUniqueClipped(&ws.OpenLoops, []string{"confirm command: " + meta.PendingExec.Display}, cfg.MaxOpenLoops, 140)
 			appendRecentUniqueClipped(&ws.PinnedCommands, []string{meta.PendingExec.Display}, cfg.MaxPinnedCommands, 120)

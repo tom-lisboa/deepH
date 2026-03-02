@@ -18,6 +18,7 @@ type chatSessionMeta struct {
 	CreatedAt          time.Time            `json:"created_at"`
 	UpdatedAt          time.Time            `json:"updated_at"`
 	Turns              int                  `json:"turns"`
+	PendingPlan        *chatPendingPlan     `json:"pending_plan,omitempty"`
 	PendingExec        *deephCommand        `json:"pending_exec,omitempty"`
 	LastCommandReceipt *deephCommandReceipt `json:"last_command_receipt,omitempty"`
 }

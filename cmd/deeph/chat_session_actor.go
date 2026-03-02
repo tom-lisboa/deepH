@@ -154,6 +154,12 @@ func (s *chatSessionActorState) processLine(line string) chatSessionActorTurnRes
 	stopCoach()
 	if err != nil {
 		if replies := maybeBuildChatErrorFallback(s.cfg.Workspace, s.meta, line, err); len(replies) > 0 {
+			s.meta.PendingPlan = maybeBuildGuideCapabilityPlan(s.cfg.Workspace, s.meta, line)
+			if s.meta.PendingPlan != nil {
+				s.meta.PendingExec = nil
+			} else if len(replies) == 1 {
+				s.meta.PendingExec = derivePendingExecFromGuideText(s.cfg.Workspace, replies[0].Text)
+			}
 			replies = sanitizeChatReplies(s.meta, replies)
 			printChatReplies(replies)
 			before := len(s.entries)
@@ -205,6 +211,7 @@ func cloneChatSessionMeta(meta *chatSessionMeta) *chatSessionMeta {
 		return &chatSessionMeta{}
 	}
 	cp := *meta
+	cp.PendingPlan = cloneChatPendingPlan(meta.PendingPlan)
 	if meta.PendingExec != nil {
 		pending := *meta.PendingExec
 		pending.Args = append([]string{}, meta.PendingExec.Args...)

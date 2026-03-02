@@ -17,6 +17,19 @@ type chatRoute struct {
 
 // routeChatTurn handles deterministic chat paths before the LLM/runtime path.
 func routeChatTurn(workspace string, meta *chatSessionMeta, entries []chatSessionEntry, line string, plan runtime.ExecutionPlan, tasks []runtime.Task, sinkIdxs []int) (chatRoute, error) {
+	if meta != nil && meta.PendingPlan != nil {
+		handled, replies, err := maybeHandlePendingPlanReply(meta, line)
+		if err != nil {
+			return chatRoute{}, err
+		}
+		if handled {
+			return chatRoute{
+				Kind:    chatRouteHandled,
+				Replies: replies,
+			}, nil
+		}
+	}
+
 	if meta != nil && meta.PendingExec != nil {
 		handled, replies, err := maybeHandlePendingExecReply(meta, line)
 		if err != nil {
@@ -32,6 +45,7 @@ func routeChatTurn(workspace string, meta *chatSessionMeta, entries []chatSessio
 
 	if len(line) > 0 && line[0] == '/' {
 		if meta != nil {
+			meta.PendingPlan = nil
 			meta.PendingExec = nil
 		}
 		done, err := handleChatSlashCommand(line, workspace, meta, entries, plan, tasks, sinkIdxs)
@@ -43,8 +57,13 @@ func routeChatTurn(workspace string, meta *chatSessionMeta, entries []chatSessio
 
 	if localText, ok := maybeAnswerGuideLocally(workspace, meta, line); ok {
 		if meta != nil {
-			meta.PendingExec = derivePendingExecFromGuideText(workspace, localText)
-			if meta.PendingExec != nil {
+			meta.PendingPlan = maybeBuildGuideCapabilityPlan(workspace, meta, line)
+			if meta.PendingPlan != nil {
+				meta.PendingExec = nil
+			} else {
+				meta.PendingExec = derivePendingExecFromGuideText(workspace, localText)
+			}
+			if meta.PendingPlan == nil && meta.PendingExec != nil {
 				localText = appendGuideExecCallToAction(localText)
 			}
 		}
@@ -62,6 +81,7 @@ func routeChatTurn(workspace string, meta *chatSessionMeta, entries []chatSessio
 	}
 
 	if meta != nil {
+		meta.PendingPlan = nil
 		meta.PendingExec = nil
 	}
 	return chatRoute{Kind: chatRouteLLM}, nil

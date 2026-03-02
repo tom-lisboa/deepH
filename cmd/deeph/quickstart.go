@@ -123,7 +123,7 @@ func cmdQuickstart(args []string) error {
 	fmt.Printf("  deeph run %s \"hello\"\n", strings.TrimSpace(*agentName))
 	if strings.EqualFold(strings.TrimSpace(*agentName), "guide") {
 		fmt.Println("  deeph review")
-		fmt.Println("  deeph run coder \"analyze and update the relevant file\"")
+		fmt.Println("  deeph edit \"analyze and update the relevant file\"")
 	}
 	if strings.EqualFold(selectedProvider, "deepseek") {
 		fmt.Println("  (set DEEPSEEK_API_KEY in your shell before running)")

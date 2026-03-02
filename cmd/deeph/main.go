@@ -50,6 +50,8 @@ func run(args []string) error {
 		return cmdValidate(args[1:])
 	case "review":
 		return cmdReview(args[1:])
+	case "edit":
+		return cmdEdit(args[1:])
 	case "trace":
 		return cmdTrace(args[1:])
 	case "run":
@@ -91,6 +93,7 @@ func printUsage() {
 	fmt.Println("  deeph update [--owner NAME] [--repo NAME] [--tag latest|vX.Y.Z] [--check]")
 	fmt.Println("  deeph validate [--workspace DIR]")
 	fmt.Println(`  deeph review [--workspace DIR] [--spec SPEC] [--base REF] [--trace] [--coach=false] [--json] [focus]`)
+	fmt.Println(`  deeph edit [--workspace DIR] [--trace] [--coach=false] [task]`)
 	fmt.Println(`  deeph trace [--workspace DIR] [--json] [--multiverse N] "<agent|a+b|a>b|a+b>c|@crew|crew:name>" [input]`)
 	fmt.Println(`  deeph run [--workspace DIR] [--trace] [--coach=false] [--multiverse N] [--judge-agent SPEC] [--judge-max-output-chars N] "<agent|a+b|a>b|a+b>c|@crew|crew:name>" [input]`)
 	fmt.Println(`  deeph chat [--workspace DIR] [--session ID] [--history-turns N] [--history-tokens N] [--trace] [--coach=false] "<agent|a+b|a>b|a+b>c>"`)
@@ -321,6 +324,33 @@ func cmdTrace(args []string) error {
 		}
 	}
 	return nil
+}
+
+func cmdEdit(args []string) error {
+	fs := flag.NewFlagSet("edit", flag.ContinueOnError)
+	workspace := fs.String("workspace", ".", "workspace path")
+	showTrace := fs.Bool("trace", false, "print execution trace summary")
+	showCoach := fs.Bool("coach", true, "show occasional semantic tips while waiting")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	input := strings.TrimSpace(strings.Join(fs.Args(), " "))
+	if input == "" {
+		return errors.New("edit requires [task] describing the requested code change")
+	}
+	return cmdRun(buildEditRunArgs(*workspace, *showTrace, *showCoach, input))
+}
+
+func buildEditRunArgs(workspace string, showTrace, showCoach bool, input string) []string {
+	args := []string{"--workspace", workspace}
+	if showTrace {
+		args = append(args, "--trace")
+	}
+	if !showCoach {
+		args = append(args, "--coach=false")
+	}
+	args = append(args, "coder", input)
+	return args
 }
 
 func cmdRun(args []string) error {

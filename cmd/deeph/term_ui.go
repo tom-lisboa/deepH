@@ -203,6 +203,9 @@ func buildChatStatusBar(meta *chatSessionMeta, plan runtime.ExecutionPlan) strin
 	if meta.PendingExec != nil && strings.TrimSpace(meta.PendingExec.Path) != "" {
 		parts = append(parts, uiWarn("pending="+meta.PendingExec.Path))
 	}
+	if meta.PendingPlan != nil && strings.TrimSpace(meta.PendingPlan.Kind) != "" {
+		parts = append(parts, uiWarn("plan="+meta.PendingPlan.Kind))
+	}
 	if meta.LastCommandReceipt != nil && strings.TrimSpace(meta.LastCommandReceipt.Command.Path) != "" {
 		tone := "success"
 		if !meta.LastCommandReceipt.Success {
@@ -263,6 +266,9 @@ func shouldShowChatProgress(showCoach bool, meta *chatSessionMeta, line string) 
 	if strings.HasPrefix(line, "/exec") {
 		return true
 	}
+	if meta != nil && meta.PendingPlan != nil && chatLooksAffirmative(line) {
+		return true
+	}
 	if meta != nil && meta.PendingExec != nil && chatLooksAffirmative(line) {
 		return true
 	}
@@ -274,6 +280,8 @@ func chatProgressLabel(meta *chatSessionMeta, line string) string {
 	switch {
 	case strings.HasPrefix(line, "/exec"):
 		return "running deeph"
+	case meta != nil && meta.PendingPlan != nil && chatLooksAffirmative(line):
+		return "preparing workspace"
 	case meta != nil && meta.PendingExec != nil && chatLooksAffirmative(line):
 		return "running deeph"
 	case strings.HasPrefix(line, "/"):

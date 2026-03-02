@@ -32,6 +32,34 @@ func TestRouteChatTurnUsesLocalGuideReplyAndSetsPendingExec(t *testing.T) {
 	}
 }
 
+func TestRouteChatTurnUsesCapabilityPlanForCodeBootstrap(t *testing.T) {
+	ws := t.TempDir()
+	meta := &chatSessionMeta{ID: "s1b", AgentSpec: "guide"}
+
+	route, err := routeChatTurn(ws, meta, nil, "pode editar meu main.go e adicionar duas funcoes?", runtime.ExecutionPlan{}, nil, nil)
+	if err != nil {
+		t.Fatalf("route chat turn: %v", err)
+	}
+	if route.Kind != chatRouteHandled {
+		t.Fatalf("kind=%q", route.Kind)
+	}
+	if len(route.Replies) != 1 {
+		t.Fatalf("replies=%d", len(route.Replies))
+	}
+	if meta.PendingPlan == nil {
+		t.Fatalf("expected pending plan to be set")
+	}
+	if meta.PendingExec != nil {
+		t.Fatalf("expected pending exec to stay empty until plan is confirmed")
+	}
+	if meta.PendingPlan.Kind != "bootstrap_code_capabilities" {
+		t.Fatalf("kind=%q", meta.PendingPlan.Kind)
+	}
+	if !strings.Contains(route.Replies[0].Text, "deeph quickstart") {
+		t.Fatalf("reply=%q", route.Replies[0].Text)
+	}
+}
+
 func TestRouteChatTurnPendingExecFallsBackToLLMWhenReplyIsNeutral(t *testing.T) {
 	meta := &chatSessionMeta{
 		ID:        "s2",

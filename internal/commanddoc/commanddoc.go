@@ -202,6 +202,22 @@ var docs = []Doc{
 		},
 	},
 	{
+		Path:     "edit",
+		Category: "execution",
+		Summary:  "Run the default `coder` agent with a focused code-editing task",
+		Usage: []string{
+			`deeph edit [--workspace DIR] [--trace] [--coach=false] [task]`,
+		},
+		Examples: []string{
+			`deeph edit "analyze cmd/main.go and add two helper functions"`,
+			`deeph edit --trace "refactor the handler and keep behavior unchanged"`,
+		},
+		Notes: []string{
+			"Thin shortcut over `deeph run coder ...` for the common editing path.",
+			"Best used after `deeph quickstart`, which scaffolds the default `coder` agent and file skills.",
+		},
+	},
+	{
 		Path:     "trace",
 		Category: "execution",
 		Summary:  "Show execution plan, stages, channels and handoffs before running",

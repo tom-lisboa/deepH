@@ -245,6 +245,17 @@ func cmdSessionShow(args []string) error {
 			fmt.Printf("pinned_commands: %s\n", strings.Join(memory.WorkingSet.PinnedCommands, " | "))
 		}
 	}
+	if meta.PendingPlan != nil {
+		if meta.PendingPlan.Summary != "" {
+			fmt.Printf("pending_plan: %s\n", meta.PendingPlan.Summary)
+		}
+		if len(meta.PendingPlan.Commands) > 0 {
+			fmt.Printf("pending_plan_first: %s\n", meta.PendingPlan.Commands[0].Display)
+		}
+		if meta.PendingPlan.Followup != nil && meta.PendingPlan.Followup.Display != "" {
+			fmt.Printf("pending_plan_followup: %s\n", meta.PendingPlan.Followup.Display)
+		}
+	}
 	if meta.LastCommandReceipt != nil {
 		receipt := meta.LastCommandReceipt
 		fmt.Printf("last_command: %s success=%v finished_at=%s\n", receipt.Command.Display, receipt.Success, receipt.EndedAt.Format(time.RFC3339))
@@ -407,6 +418,15 @@ func printChatStatus(meta *chatSessionMeta, plan runtime.ExecutionPlan, sinkIdxs
 	}
 	fmt.Printf("%s session=%s agent=%s turns=%d tasks=%d stages=%d parallel=%v sinks=%v\n", prefix, meta.ID, meta.AgentSpec, meta.Turns, len(plan.Tasks), len(plan.Stages), plan.Parallel, sinkIdxs)
 	fmt.Printf("%s ui_mode=%s\n", prefix, normalizeChatUIMode(meta.UIMode))
+	if meta.PendingPlan != nil {
+		fmt.Printf("%s pending_plan=%s\n", prefix, clipLine(strings.TrimSpace(meta.PendingPlan.Summary), 180))
+		if len(meta.PendingPlan.Commands) > 0 {
+			fmt.Printf("%s pending_plan_first=%s\n", prefix, meta.PendingPlan.Commands[0].Display)
+		}
+		if meta.PendingPlan.Followup != nil && strings.TrimSpace(meta.PendingPlan.Followup.Display) != "" {
+			fmt.Printf("%s pending_plan_followup=%s\n", prefix, meta.PendingPlan.Followup.Display)
+		}
+	}
 	if meta.PendingExec != nil && strings.TrimSpace(meta.PendingExec.Display) != "" {
 		fmt.Printf("%s pending_exec=%s\n", prefix, meta.PendingExec.Display)
 	}
@@ -592,11 +612,22 @@ func buildChatOperationalState(meta *chatSessionMeta) []string {
 		return nil
 	}
 	lines := make([]string, 0, 8)
-	if meta.Turns > 0 || meta.PendingExec != nil || meta.LastCommandReceipt != nil {
+	if meta.Turns > 0 || meta.PendingPlan != nil || meta.PendingExec != nil || meta.LastCommandReceipt != nil {
 		lines = append(lines, "[chat_operational_state]")
 	}
 	if meta.Turns > 0 {
 		lines = append(lines, fmt.Sprintf("turns: %d", meta.Turns))
+	}
+	if meta.PendingPlan != nil {
+		if strings.TrimSpace(meta.PendingPlan.Summary) != "" {
+			lines = append(lines, "pending_plan: "+meta.PendingPlan.Summary)
+		}
+		if len(meta.PendingPlan.Commands) > 0 && strings.TrimSpace(meta.PendingPlan.Commands[0].Display) != "" {
+			lines = append(lines, "pending_plan_first: "+meta.PendingPlan.Commands[0].Display)
+		}
+		if meta.PendingPlan.Followup != nil && strings.TrimSpace(meta.PendingPlan.Followup.Display) != "" {
+			lines = append(lines, "pending_plan_followup: "+meta.PendingPlan.Followup.Display)
+		}
 	}
 	if meta.PendingExec != nil && strings.TrimSpace(meta.PendingExec.Display) != "" {
 		lines = append(lines, "pending_exec: "+meta.PendingExec.Display)

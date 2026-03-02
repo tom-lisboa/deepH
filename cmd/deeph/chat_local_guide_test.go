@@ -96,8 +96,11 @@ func TestMaybeAnswerGuideLocallyCodeWorkflowUsesCoderWhenAvailable(t *testing.T)
 	if !ok {
 		t.Fatalf("expected local guide code workflow answer")
 	}
-	if !strings.Contains(got, "deeph run --workspace . coder") {
-		t.Fatalf("expected coder run command, got:\n%s", got)
+	if !strings.Contains(got, "deeph edit --workspace .") {
+		t.Fatalf("expected edit shortcut command, got:\n%s", got)
+	}
+	if !strings.Contains(got, "Se voce responder `sim` aqui no chat") {
+		t.Fatalf("expected confirmation hint, got:\n%s", got)
 	}
 }
 
@@ -110,13 +113,35 @@ func TestMaybeAnswerGuideLocallyCodeWorkflowBootstrapsOldWorkspace(t *testing.T)
 		t.Fatalf("expected local guide code bootstrap answer")
 	}
 	for _, want := range []string{
-		"deeph skill add --workspace . file_read_range",
-		"deeph skill add --workspace . file_write_safe",
-		"deeph agent create --workspace . coder",
-		"deeph review --workspace .",
+		"deeph quickstart --workspace",
+		"deeph edit --workspace",
+		"Se quiser, responda `sim` e eu executo esse plano aqui no chat.",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("expected bootstrap answer to contain %q, got:\n%s", want, got)
 		}
+	}
+}
+
+func TestMaybeAnswerGuideLocallyCodeWorkflowUsesReviewerForReviewIntent(t *testing.T) {
+	meta := &chatSessionMeta{ID: "s7", AgentSpec: "guide"}
+	ws := t.TempDir()
+	if err := os.WriteFile(filepath.Join(ws, "deeph.yaml"), []byte("version: 1\n"), 0o644); err != nil {
+		t.Fatalf("write deeph.yaml: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(ws, "agents"), 0o755); err != nil {
+		t.Fatalf("mkdir agents: %v", err)
+	}
+	reviewer := "name: reviewer\ndescription: test\nprovider: local_mock\nmodel: mock-small\nsystem_prompt: |\n  test\nskills:\n  - file_read_range\n"
+	if err := os.WriteFile(filepath.Join(ws, "agents", "reviewer.yaml"), []byte(reviewer), 0o644); err != nil {
+		t.Fatalf("write reviewer agent: %v", err)
+	}
+
+	got, ok := maybeAnswerGuideLocally(ws, meta, "revise as mudancas no cmd/main.go e procure regressao e testes faltando")
+	if !ok {
+		t.Fatalf("expected local guide review workflow answer")
+	}
+	if !strings.Contains(got, "deeph run --workspace . reviewer") {
+		t.Fatalf("expected reviewer run command, got:\n%s", got)
 	}
 }

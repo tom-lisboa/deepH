@@ -37,31 +37,29 @@ func maybeAnswerGuideCodeWorkflow(workspace, norm, userMessage string) (string, 
 	}
 	agents := listWorkspaceAgentNames(workspace)
 	if agent := guideSuggestedCodeAgent(agents, norm); agent != "" {
+		actionSummary := "ler os arquivos necessarios e responder de forma objetiva"
+		command := fmt.Sprintf("deeph run --workspace . %s %s", agent, strconv.Quote(strings.TrimSpace(userMessage)))
+		if strings.EqualFold(strings.TrimSpace(agent), "coder") {
+			actionSummary = "ler os arquivos necessarios, aplicar uma edicao focada e resumir riscos residuais"
+			command = fmt.Sprintf("deeph edit --workspace . %s", strconv.Quote(strings.TrimSpace(userMessage)))
+		}
 		return formatLocalGuideReply(
-			"O `guide` deste chat e focado na operacao do `deepH`. Para analisar ou implementar codigo de verdade no workspace, o caminho certo agora e executar um agent de codigo.",
+			"O `guide` deste chat e focado na operacao do `deepH`. Para analisar ou implementar codigo de verdade no workspace, o caminho certo agora e executar o agent certo com a sua instrucao atual.",
 			[]string{
-				fmt.Sprintf("deeph run --workspace . %s %s", agent, strconv.Quote(strings.TrimSpace(userMessage))),
+				command,
 			},
 			[]string{
 				fmt.Sprintf("Isso roda o agent `%s` com a sua instrucao atual, sem reabrir outro chat.", agent),
+				"Se voce responder `sim` aqui no chat, eu executo esse comando para voce agora.",
+				"Esse passo vai " + actionSummary + ".",
 				"Se quiser revisar apenas mudancas locais em Git, use tambem `deeph review --workspace .`.",
 			},
 		), true
 	}
-	return formatLocalGuideReply(
-		"O `guide` deste chat e operacional. Para editar ou analisar codigo de forma util, o workspace precisa de um agent de codigo e skills de arquivo.",
-		[]string{
-			"deeph skill add --workspace . file_read_range",
-			"deeph skill add --workspace . file_write_safe",
-			"deeph agent create --workspace . coder",
-			"deeph review --workspace .",
-		},
-		[]string{
-			"Depois de criar `agents/coder.yaml`, adicione as skills `file_read_range` e `file_write_safe` nesse agent e rode `deeph validate --workspace .`.",
-			"Em seguida, execute `deeph run --workspace . coder \"sua instrucao\"` para fazer a analise ou edicao.",
-			"`deeph review --workspace .` e o atalho certo quando a analise for sobre mudancas locais no Git.",
-		},
-	), true
+	if plan := maybeBuildGuideCapabilityPlan(workspace, &chatSessionMeta{AgentSpec: "guide"}, userMessage); plan != nil {
+		return formatGuideCapabilityPlanReply(plan), true
+	}
+	return "", false
 }
 
 func localGuideLooksCodeRequest(norm, raw string) bool {
@@ -92,15 +90,51 @@ func guideSuggestedCodeAgent(agents []string, norm string) string {
 		}
 		return ""
 	}
-	if containsAny(norm, "implemente", "implementa", "crie", "adicionar", "adicione") {
+	switch guideDetectCodeIntent(norm) {
+	case guideCodeIntentEdit:
 		if agent := containsAgent("coder", "builder", "implementer"); agent != "" {
 			return agent
 		}
-	}
-	if agent := containsAgent("reviewer", "coder", "review_synth"); agent != "" {
-		return agent
+		return ""
+	case guideCodeIntentReview:
+		if agent := containsAgent("reviewer", "review_synth", "coder"); agent != "" {
+			return agent
+		}
+	default:
+		if agent := containsAgent("coder", "reviewer", "review_synth"); agent != "" {
+			return agent
+		}
 	}
 	return ""
+}
+
+type guideCodeIntent string
+
+const (
+	guideCodeIntentEdit    guideCodeIntent = "edit"
+	guideCodeIntentReview  guideCodeIntent = "review"
+	guideCodeIntentAnalyze guideCodeIntent = "analyze"
+)
+
+func guideDetectCodeIntent(norm string) guideCodeIntent {
+	editSignals := containsAny(norm,
+		"implemente", "implementa", "crie", "adicionar", "adicione", "editar", "edite", "edita",
+		"altere", "altera", "corrija", "corrige", "refatore", "refatora", "refactor", "escreva", "write",
+		"com implementacao", "com implementação", "implementacao completa", "implementação completa",
+	)
+	reviewSignals := containsAny(norm,
+		"review", "revise", "revisar", "revisao", "revisão", "regressao", "regressão",
+		"riscos", "risk", "bug", "bugs", "falha", "falhas", "teste faltando", "testes faltando",
+		"gaps de teste", "missing tests", "diff", "mudancas locais", "mudanças locais", "pull request", "pr",
+	)
+	switch {
+	case editSignals:
+		return guideCodeIntentEdit
+	case reviewSignals:
+		return guideCodeIntentReview
+	default:
+		return guideCodeIntentAnalyze
+	}
 }
 
 func localGuideLooksOperational(norm string) bool {
