@@ -3,6 +3,7 @@ package reviewscope
 import (
 	"errors"
 	"fmt"
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"io/fs"
@@ -26,6 +27,10 @@ type Config struct {
 	MaxImportedPackageFiles  int
 	MaxReverseImportPackages int
 	MaxReverseImportFiles    int
+	MaxSymbolContextFiles    int
+	MaxSymbolTestFiles       int
+	MaxImportedSymbolFiles   int
+	MaxReverseSymbolFiles    int
 }
 
 type Scope struct {
@@ -41,6 +46,7 @@ type Scope struct {
 	TestFiles      int           `json:"test_files"`
 	Imports        int           `json:"imports"`
 	ReverseImports int           `json:"reverse_imports"`
+	SymbolContext  int           `json:"symbol_context"`
 }
 
 type ChangedFile struct {
@@ -65,8 +71,16 @@ type WorkingFile struct {
 }
 
 type goWorkspaceIndex struct {
-	PackageFiles   map[string][]string
-	ReverseImports map[string][]string
+	PackageFiles       map[string][]string
+	ReverseImports     map[string][]string
+	PackageSymbolFiles map[string]map[string][]string
+	FileRefs           map[string]goFileRefs
+}
+
+type goFileRefs struct {
+	DeclaredSymbols      map[string]struct{}
+	IdentifierRefs       map[string]struct{}
+	ImportedSelectorRefs map[string]map[string]struct{}
 }
 
 var hunkPattern = regexp.MustCompile(`^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@`)
@@ -83,6 +97,10 @@ func DefaultConfig() Config {
 		MaxImportedPackageFiles:  1,
 		MaxReverseImportPackages: 3,
 		MaxReverseImportFiles:    1,
+		MaxSymbolContextFiles:    2,
+		MaxSymbolTestFiles:       2,
+		MaxImportedSymbolFiles:   2,
+		MaxReverseSymbolFiles:    2,
 	}
 }
 
@@ -147,11 +165,15 @@ func BuildInput(scope Scope, focus string, cfg Config) string {
 	p.addLine(fmt.Sprintf("changed_files: %d", len(scope.DiffFiles)))
 	p.addLine(fmt.Sprintf("working_set_files: %d", len(scope.WorkingSet)))
 	p.addLine(fmt.Sprintf("line_delta: +%d -%d", scope.AddedLines, scope.DeletedLines))
+	if scope.SymbolContext > 0 {
+		p.addLine(fmt.Sprintf("symbol_context_files: %d", scope.SymbolContext))
+	}
 	if strings.TrimSpace(focus) != "" {
 		p.addLine("review_focus: " + trimFocusLine(focus, 220))
 	}
 	p.addLine("instruction: findings first. prioritize bugs, regressions, missing tests, concurrency, context cancellation, nil/pointer mistakes, API drift, resource leaks, and risky assumptions. cite file paths and explain impact. if no issues, say that explicitly and mention residual risks.")
 	p.addLine("preferred_output: use compact structured sections when practical. findings should include severity, file, title, impact, and optional evidence. if no convincing issue exists, say `no_issues: true` and list residual risks or testing gaps.")
+	p.addLine("semantic_expansion: prefer files that declare or reference changed top-level Go symbols before generic package context.")
 	p.addLine("changed:")
 	for _, file := range scope.DiffFiles {
 		line := fmt.Sprintf("- %s %s +%d -%d hunks=%d", file.Status, file.Path, file.Added, file.Deleted, len(file.Hunks))
@@ -369,9 +391,40 @@ func expandGoContext(scope *Scope, changed ChangedFile, cfg Config, addWorking f
 		relDir = "."
 	}
 	absPackageDir := filepath.Join(scope.Workspace, relDir)
+	changedSymbols, changedImportedSelectors, _ := readChangedGoContext(abs, changed.Hunks)
 	siblings := packageFiles(goIndex, relDir)
-	contextAdded := 0
-	testsAdded := 0
+	symbolContextAdded := 0
+	symbolTestsAdded := 0
+	if len(changedSymbols) > 0 {
+		for _, rel := range siblings {
+			if rel == changed.Path {
+				continue
+			}
+			name := filepath.Base(rel)
+			if strings.HasSuffix(name, "_test.go") {
+				if strings.HasSuffix(changed.Path, "_test.go") || symbolTestsAdded >= cfg.MaxSymbolTestFiles {
+					continue
+				}
+				if fileUsesAnySymbol(goIndex, rel, changedSymbols) && addWorking(rel, "symbol test reference", false) {
+					symbolTestsAdded++
+					scope.TestFiles++
+					scope.SymbolContext++
+				}
+				continue
+			}
+			if symbolContextAdded >= cfg.MaxSymbolContextFiles {
+				continue
+			}
+			if fileUsesAnySymbol(goIndex, rel, changedSymbols) && addWorking(rel, "symbol reference", false) {
+				symbolContextAdded++
+				scope.SamePackage++
+				scope.SymbolContext++
+			}
+		}
+	}
+
+	contextAdded := symbolContextAdded
+	testsAdded := symbolTestsAdded
 	baseName := strings.TrimSuffix(filepath.Base(changed.Path), "_test.go")
 	for _, rel := range siblings {
 		if rel == changed.Path {
@@ -424,7 +477,26 @@ func expandGoContext(scope *Scope, changed ChangedFile, cfg Config, addWorking f
 		}
 		files := packageFiles(goIndex, importRelDir)
 		addedForPackage := 0
+		symbols := changedImportedSelectors[imp]
+		if len(symbols) > 0 {
+			for _, rel := range packageFilesDeclaringAnySymbol(goIndex, importRelDir, symbols) {
+				if strings.HasSuffix(rel, "_test.go") {
+					continue
+				}
+				if addWorking(rel, "imported symbol reference", false) {
+					addedForPackage++
+					scope.Imports++
+					scope.SymbolContext++
+				}
+				if addedForPackage >= cfg.MaxImportedSymbolFiles || addedForPackage >= cfg.MaxImportedPackageFiles {
+					break
+				}
+			}
+		}
 		for _, rel := range files {
+			if addedForPackage >= cfg.MaxImportedPackageFiles {
+				break
+			}
 			if strings.HasSuffix(rel, "_test.go") {
 				continue
 			}
@@ -443,6 +515,8 @@ func expandGoContext(scope *Scope, changed ChangedFile, cfg Config, addWorking f
 
 	importerDirs := reverseImportDirs(goIndex, relDir)
 	reversePackages := 0
+	currentImportPath := packageImportPath(scope.ModulePath, relDir)
+	exportedSymbols := exportedSymbols(changedSymbols)
 	for _, importerDir := range importerDirs {
 		if reversePackages >= cfg.MaxReverseImportPackages {
 			break
@@ -452,7 +526,31 @@ func expandGoContext(scope *Scope, changed ChangedFile, cfg Config, addWorking f
 		}
 		files := packageFiles(goIndex, importerDir)
 		addedForPackage := 0
+		if currentImportPath != "" && len(exportedSymbols) > 0 {
+			for _, rel := range files {
+				if strings.HasSuffix(rel, "_test.go") {
+					continue
+				}
+				if hasWorking != nil && hasWorking(rel) {
+					continue
+				}
+				if !fileUsesImportedPackageSymbols(goIndex, rel, currentImportPath, exportedSymbols) {
+					continue
+				}
+				if addWorking(rel, "reverse symbol reference", false) {
+					addedForPackage++
+					scope.ReverseImports++
+					scope.SymbolContext++
+				}
+				if addedForPackage >= cfg.MaxReverseSymbolFiles || addedForPackage >= cfg.MaxReverseImportFiles {
+					break
+				}
+			}
+		}
 		for _, rel := range files {
+			if addedForPackage >= cfg.MaxReverseImportFiles {
+				break
+			}
 			if strings.HasSuffix(rel, "_test.go") {
 				continue
 			}
@@ -476,8 +574,10 @@ func expandGoContext(scope *Scope, changed ChangedFile, cfg Config, addWorking f
 
 func buildGoWorkspaceIndex(workspace, modulePath string) (*goWorkspaceIndex, error) {
 	index := &goWorkspaceIndex{
-		PackageFiles:   map[string][]string{},
-		ReverseImports: map[string][]string{},
+		PackageFiles:       map[string][]string{},
+		ReverseImports:     map[string][]string{},
+		PackageSymbolFiles: map[string]map[string][]string{},
+		FileRefs:           map[string]goFileRefs{},
 	}
 	modulePath = strings.TrimSpace(modulePath)
 	err := filepath.WalkDir(workspace, func(path string, d fs.DirEntry, err error) error {
@@ -504,6 +604,20 @@ func buildGoWorkspaceIndex(workspace, modulePath string) (*goWorkspaceIndex, err
 			dir = "."
 		}
 		index.PackageFiles[dir] = append(index.PackageFiles[dir], rel)
+		fileRefs, err := readGoFileRefs(path)
+		if err == nil {
+			index.FileRefs[rel] = fileRefs
+			if len(fileRefs.DeclaredSymbols) > 0 {
+				bySymbol := index.PackageSymbolFiles[dir]
+				if bySymbol == nil {
+					bySymbol = map[string][]string{}
+					index.PackageSymbolFiles[dir] = bySymbol
+				}
+				for symbol := range fileRefs.DeclaredSymbols {
+					bySymbol[symbol] = append(bySymbol[symbol], rel)
+				}
+			}
+		}
 		if modulePath == "" {
 			return nil
 		}
@@ -538,11 +652,361 @@ func buildGoWorkspaceIndex(workspace, modulePath string) (*goWorkspaceIndex, err
 	for dir := range index.PackageFiles {
 		sort.Strings(index.PackageFiles[dir])
 	}
+	for dir, bySymbol := range index.PackageSymbolFiles {
+		for symbol, files := range bySymbol {
+			sort.Strings(files)
+			bySymbol[symbol] = dedupeSortedStrings(files)
+		}
+		index.PackageSymbolFiles[dir] = bySymbol
+	}
 	for dir, importers := range index.ReverseImports {
 		sort.Strings(importers)
 		index.ReverseImports[dir] = dedupeSortedStrings(importers)
 	}
 	return index, nil
+}
+
+func readGoFileRefs(path string) (goFileRefs, error) {
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, path, nil, parser.SkipObjectResolution)
+	if err != nil {
+		return goFileRefs{}, err
+	}
+	importAliases := map[string]string{}
+	for _, imp := range file.Imports {
+		importPath, err := strconv.Unquote(strings.TrimSpace(imp.Path.Value))
+		if err != nil || importPath == "" {
+			continue
+		}
+		alias := filepath.Base(importPath)
+		if imp.Name != nil && strings.TrimSpace(imp.Name.Name) != "" && imp.Name.Name != "." && imp.Name.Name != "_" {
+			alias = imp.Name.Name
+		}
+		if alias != "" {
+			importAliases[alias] = importPath
+		}
+	}
+	refs := goFileRefs{
+		DeclaredSymbols:      map[string]struct{}{},
+		IdentifierRefs:       map[string]struct{}{},
+		ImportedSelectorRefs: map[string]map[string]struct{}{},
+	}
+	for _, decl := range file.Decls {
+		recordDeclaredSymbols(refs.DeclaredSymbols, decl)
+	}
+	ast.Inspect(file, func(n ast.Node) bool {
+		switch x := n.(type) {
+		case *ast.Ident:
+			name := strings.TrimSpace(x.Name)
+			if name != "" && name != "_" {
+				refs.IdentifierRefs[name] = struct{}{}
+			}
+		case *ast.SelectorExpr:
+			base, ok := x.X.(*ast.Ident)
+			if !ok {
+				return true
+			}
+			importPath, ok := importAliases[base.Name]
+			if !ok {
+				return true
+			}
+			symbol := strings.TrimSpace(x.Sel.Name)
+			if symbol == "" {
+				return true
+			}
+			byImport := refs.ImportedSelectorRefs[importPath]
+			if byImport == nil {
+				byImport = map[string]struct{}{}
+				refs.ImportedSelectorRefs[importPath] = byImport
+			}
+			byImport[symbol] = struct{}{}
+		}
+		return true
+	})
+	return refs, nil
+}
+
+func recordDeclaredSymbols(out map[string]struct{}, decl ast.Decl) {
+	if out == nil || decl == nil {
+		return
+	}
+	switch d := decl.(type) {
+	case *ast.FuncDecl:
+		if d.Name != nil && strings.TrimSpace(d.Name.Name) != "" {
+			out[d.Name.Name] = struct{}{}
+		}
+		if recv := receiverTypeName(d); recv != "" && d.Name != nil && strings.TrimSpace(d.Name.Name) != "" {
+			out[recv] = struct{}{}
+			out[recv+"."+d.Name.Name] = struct{}{}
+		}
+	case *ast.GenDecl:
+		for _, spec := range d.Specs {
+			switch s := spec.(type) {
+			case *ast.TypeSpec:
+				if s.Name != nil && strings.TrimSpace(s.Name.Name) != "" {
+					out[s.Name.Name] = struct{}{}
+				}
+			case *ast.ValueSpec:
+				for _, name := range s.Names {
+					if name != nil && strings.TrimSpace(name.Name) != "" {
+						out[name.Name] = struct{}{}
+					}
+				}
+			}
+		}
+	}
+}
+
+func receiverTypeName(d *ast.FuncDecl) string {
+	if d == nil || d.Recv == nil || len(d.Recv.List) == 0 {
+		return ""
+	}
+	switch t := d.Recv.List[0].Type.(type) {
+	case *ast.Ident:
+		return strings.TrimSpace(t.Name)
+	case *ast.StarExpr:
+		if id, ok := t.X.(*ast.Ident); ok {
+			return strings.TrimSpace(id.Name)
+		}
+	}
+	return ""
+}
+
+func readChangedGoContext(path string, hunks []DiffHunk) ([]string, map[string][]string, error) {
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, path, nil, parser.SkipObjectResolution)
+	if err != nil {
+		return nil, nil, err
+	}
+	importAliases := map[string]string{}
+	for _, imp := range file.Imports {
+		importPath, err := strconv.Unquote(strings.TrimSpace(imp.Path.Value))
+		if err != nil || importPath == "" {
+			continue
+		}
+		alias := filepath.Base(importPath)
+		if imp.Name != nil && strings.TrimSpace(imp.Name.Name) != "" && imp.Name.Name != "." && imp.Name.Name != "_" {
+			alias = imp.Name.Name
+		}
+		if alias != "" {
+			importAliases[alias] = importPath
+		}
+	}
+	symbols := map[string]struct{}{}
+	imported := map[string]map[string]struct{}{}
+	for _, decl := range file.Decls {
+		start := fset.Position(decl.Pos()).Line
+		end := fset.Position(decl.End()).Line
+		if !hunksIntersectNewLines(hunks, start, end) {
+			continue
+		}
+		recordDeclaredSymbols(symbols, decl)
+	}
+	ast.Inspect(file, func(n ast.Node) bool {
+		sel, ok := n.(*ast.SelectorExpr)
+		if !ok {
+			return true
+		}
+		line := fset.Position(sel.Sel.Pos()).Line
+		if !hunksContainNewLine(hunks, line) {
+			return true
+		}
+		base, ok := sel.X.(*ast.Ident)
+		if !ok {
+			return true
+		}
+		importPath, ok := importAliases[base.Name]
+		if !ok {
+			return true
+		}
+		symbol := strings.TrimSpace(sel.Sel.Name)
+		if symbol == "" {
+			return true
+		}
+		byImport := imported[importPath]
+		if byImport == nil {
+			byImport = map[string]struct{}{}
+			imported[importPath] = byImport
+		}
+		byImport[symbol] = struct{}{}
+		return true
+	})
+	return mapKeys(symbols), mapStringSets(imported), nil
+}
+
+func hunksContainNewLine(hunks []DiffHunk, line int) bool {
+	if line <= 0 {
+		return false
+	}
+	for _, h := range hunks {
+		start := h.NewStart
+		end := h.NewStart + max(h.NewCount, 1) - 1
+		if line >= start && line <= end {
+			return true
+		}
+	}
+	return false
+}
+
+func hunksIntersectNewLines(hunks []DiffHunk, start, end int) bool {
+	if start <= 0 || end < start {
+		return false
+	}
+	for _, h := range hunks {
+		hs := h.NewStart
+		he := h.NewStart + max(h.NewCount, 1) - 1
+		if hs <= end && he >= start {
+			return true
+		}
+	}
+	return false
+}
+
+func fileUsesAnySymbol(index *goWorkspaceIndex, rel string, symbols []string) bool {
+	if index == nil || len(symbols) == 0 {
+		return false
+	}
+	refs, ok := index.FileRefs[filepath.Clean(rel)]
+	if !ok {
+		return false
+	}
+	for _, symbol := range symbols {
+		symbol = strings.TrimSpace(symbol)
+		if symbol == "" {
+			continue
+		}
+		if _, ok := refs.DeclaredSymbols[symbol]; ok {
+			return true
+		}
+		if _, ok := refs.IdentifierRefs[symbol]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func packageFilesDeclaringAnySymbol(index *goWorkspaceIndex, relDir string, symbols []string) []string {
+	relDir = filepath.Clean(strings.TrimSpace(relDir))
+	if relDir == "" {
+		relDir = "."
+	}
+	if index == nil || len(symbols) == 0 {
+		return nil
+	}
+	bySymbol := index.PackageSymbolFiles[relDir]
+	if len(bySymbol) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(symbols))
+	seen := map[string]struct{}{}
+	for _, symbol := range symbols {
+		for _, file := range bySymbol[strings.TrimSpace(symbol)] {
+			if _, ok := seen[file]; ok {
+				continue
+			}
+			seen[file] = struct{}{}
+			out = append(out, file)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func fileUsesImportedPackageSymbols(index *goWorkspaceIndex, relFile string, importPath string, symbols []string) bool {
+	if index == nil || importPath == "" || len(symbols) == 0 {
+		return false
+	}
+	refs, ok := index.FileRefs[filepath.Clean(relFile)]
+	if !ok {
+		return false
+	}
+	byImport := refs.ImportedSelectorRefs[strings.TrimSpace(importPath)]
+	if len(byImport) == 0 {
+		return false
+	}
+	for _, symbol := range symbols {
+		if _, ok := byImport[strings.TrimSpace(symbol)]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func packageImportPath(modulePath, relDir string) string {
+	modulePath = strings.TrimSpace(modulePath)
+	relDir = filepath.Clean(strings.TrimSpace(relDir))
+	if modulePath == "" {
+		return ""
+	}
+	if relDir == "" || relDir == "." {
+		return modulePath
+	}
+	return strings.TrimRight(modulePath, "/") + "/" + filepath.ToSlash(relDir)
+}
+
+func exportedSymbols(symbols []string) []string {
+	out := make([]string, 0, len(symbols))
+	for _, symbol := range symbols {
+		symbol = strings.TrimSpace(symbol)
+		if symbol == "" {
+			continue
+		}
+		base := symbol
+		if i := strings.LastIndex(symbol, "."); i >= 0 && i+1 < len(symbol) {
+			base = symbol[i+1:]
+		}
+		r := []rune(base)
+		if len(r) == 0 {
+			continue
+		}
+		if r[0] >= 'A' && r[0] <= 'Z' {
+			out = append(out, base)
+		}
+	}
+	return dedupeStrings(out)
+}
+
+func mapKeys(m map[string]struct{}) []string {
+	if len(m) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(m))
+	for key := range m {
+		key = strings.TrimSpace(key)
+		if key != "" {
+			out = append(out, key)
+		}
+	}
+	sort.Strings(out)
+	return dedupeStrings(out)
+}
+
+func mapStringSets(m map[string]map[string]struct{}) map[string][]string {
+	if len(m) == 0 {
+		return nil
+	}
+	out := make(map[string][]string, len(m))
+	for key, set := range m {
+		out[key] = mapKeys(set)
+	}
+	return out
+}
+
+func dedupeStrings(items []string) []string {
+	if len(items) == 0 {
+		return nil
+	}
+	sort.Strings(items)
+	out := items[:1]
+	last := items[0]
+	for _, item := range items[1:] {
+		if item == last {
+			continue
+		}
+		out = append(out, item)
+		last = item
+	}
+	return out
 }
 
 func packageFiles(index *goWorkspaceIndex, relDir string) []string {

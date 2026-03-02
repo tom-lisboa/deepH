@@ -160,6 +160,132 @@ func TestBuildGoWorkspaceIndexBuildsReverseImports(t *testing.T) {
 	}
 }
 
+func TestExpandWorkingSetPrefersSymbolReferencedTests(t *testing.T) {
+	ws := t.TempDir()
+	writeReviewFile(t, filepath.Join(ws, "go.mod"), "module example.com/app\n\ngo 1.24.0\n")
+	writeReviewFile(t, filepath.Join(ws, "service", "run.go"), "package service\n\nfunc Run() error {\n\treturn nil\n}\n")
+	writeReviewFile(t, filepath.Join(ws, "service", "a_helper_test.go"), "package service\n\nfunc TestHelperOnly(t *testing.T) {}\n")
+	writeReviewFile(t, filepath.Join(ws, "service", "run_test.go"), "package service\n\nfunc TestRun(t *testing.T) {\n\t_ = Run()\n}\n")
+
+	scope := Scope{
+		Workspace:  ws,
+		BaseRef:    "HEAD",
+		ModulePath: "example.com/app",
+		DiffFiles: []ChangedFile{{
+			Path:   filepath.Join("service", "run.go"),
+			Status: "M",
+			Hunks:  []DiffHunk{{NewStart: 3, NewCount: 2}},
+		}},
+	}
+	cfg := DefaultConfig()
+	cfg.MaxSamePackageTests = 0
+	cfg.MaxSymbolTestFiles = 1
+
+	index, err := buildGoWorkspaceIndex(ws, scope.ModulePath)
+	if err != nil {
+		t.Fatalf("build review index: %v", err)
+	}
+	if err := expandWorkingSet(&scope, cfg, index); err != nil {
+		t.Fatalf("expand working set: %v", err)
+	}
+
+	paths := make(map[string]string, len(scope.WorkingSet))
+	for _, file := range scope.WorkingSet {
+		paths[file.Path] = file.Reason
+	}
+	if got := paths[filepath.Join("service", "run_test.go")]; !strings.Contains(got, "symbol test reference") {
+		t.Fatalf("run_test reason=%q", got)
+	}
+	if _, ok := paths[filepath.Join("service", "a_helper_test.go")]; ok {
+		t.Fatalf("unexpected helper test in working set: %+v", scope.WorkingSet)
+	}
+	if scope.SymbolContext == 0 {
+		t.Fatalf("expected symbol context counter to increase")
+	}
+}
+
+func TestExpandWorkingSetUsesImportedSymbolDeclarations(t *testing.T) {
+	ws := t.TempDir()
+	writeReviewFile(t, filepath.Join(ws, "go.mod"), "module example.com/app\n\ngo 1.24.0\n")
+	writeReviewFile(t, filepath.Join(ws, "service", "run.go"), "package service\n\nimport \"example.com/app/internal/store\"\n\nfunc Run() {\n\t_ = store.Client{}\n}\n")
+	writeReviewFile(t, filepath.Join(ws, "internal", "store", "a_other.go"), "package store\n\ntype Other struct{}\n")
+	writeReviewFile(t, filepath.Join(ws, "internal", "store", "client.go"), "package store\n\ntype Client struct{}\n")
+
+	scope := Scope{
+		Workspace:  ws,
+		BaseRef:    "HEAD",
+		ModulePath: "example.com/app",
+		DiffFiles: []ChangedFile{{
+			Path:   filepath.Join("service", "run.go"),
+			Status: "M",
+			Hunks:  []DiffHunk{{NewStart: 6, NewCount: 1}},
+		}},
+	}
+	cfg := DefaultConfig()
+	cfg.MaxImportedPackageFiles = 1
+	cfg.MaxImportedSymbolFiles = 1
+
+	index, err := buildGoWorkspaceIndex(ws, scope.ModulePath)
+	if err != nil {
+		t.Fatalf("build review index: %v", err)
+	}
+	if err := expandWorkingSet(&scope, cfg, index); err != nil {
+		t.Fatalf("expand working set: %v", err)
+	}
+
+	paths := make(map[string]string, len(scope.WorkingSet))
+	for _, file := range scope.WorkingSet {
+		paths[file.Path] = file.Reason
+	}
+	if got := paths[filepath.Join("internal", "store", "client.go")]; !strings.Contains(got, "imported symbol reference") {
+		t.Fatalf("client reason=%q", got)
+	}
+	if _, ok := paths[filepath.Join("internal", "store", "a_other.go")]; ok {
+		t.Fatalf("unexpected unrelated imported file in working set: %+v", scope.WorkingSet)
+	}
+}
+
+func TestExpandWorkingSetUsesReverseSymbolReferences(t *testing.T) {
+	ws := t.TempDir()
+	writeReviewFile(t, filepath.Join(ws, "go.mod"), "module example.com/app\n\ngo 1.24.0\n")
+	writeReviewFile(t, filepath.Join(ws, "service", "run.go"), "package service\n\nfunc Run() error {\n\treturn nil\n}\n")
+	writeReviewFile(t, filepath.Join(ws, "cmd", "app", "a_unused.go"), "package main\n\nfunc helper() {}\n")
+	writeReviewFile(t, filepath.Join(ws, "cmd", "app", "main.go"), "package main\n\nimport \"example.com/app/service\"\n\nfunc main() {\n\t_ = service.Run()\n}\n")
+
+	scope := Scope{
+		Workspace:  ws,
+		BaseRef:    "HEAD",
+		ModulePath: "example.com/app",
+		DiffFiles: []ChangedFile{{
+			Path:   filepath.Join("service", "run.go"),
+			Status: "M",
+			Hunks:  []DiffHunk{{NewStart: 3, NewCount: 2}},
+		}},
+	}
+	cfg := DefaultConfig()
+	cfg.MaxReverseImportFiles = 1
+	cfg.MaxReverseSymbolFiles = 1
+
+	index, err := buildGoWorkspaceIndex(ws, scope.ModulePath)
+	if err != nil {
+		t.Fatalf("build review index: %v", err)
+	}
+	if err := expandWorkingSet(&scope, cfg, index); err != nil {
+		t.Fatalf("expand working set: %v", err)
+	}
+
+	paths := make(map[string]string, len(scope.WorkingSet))
+	for _, file := range scope.WorkingSet {
+		paths[file.Path] = file.Reason
+	}
+	if got := paths[filepath.Join("cmd", "app", "main.go")]; !strings.Contains(got, "reverse symbol reference") {
+		t.Fatalf("main.go reason=%q", got)
+	}
+	if _, ok := paths[filepath.Join("cmd", "app", "a_unused.go")]; ok {
+		t.Fatalf("unexpected unrelated reverse import file in working set: %+v", scope.WorkingSet)
+	}
+}
+
 func writeReviewFile(t *testing.T, path, body string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
