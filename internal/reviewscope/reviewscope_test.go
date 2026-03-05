@@ -2,6 +2,7 @@ package reviewscope
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -134,6 +135,64 @@ func TestBuildInputIncludesScopeAndExcerpt(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Fatalf("expected review input to contain %q, got:\n%s", want, got)
 		}
+	}
+}
+
+func TestBuildInputUsesGenericStrategyWhenNoGoFilesChanged(t *testing.T) {
+	ws := t.TempDir()
+	rel := filepath.Join("frontend", "app.ts")
+	writeReviewFile(t, filepath.Join(ws, rel), "export const run = () => 42;\n")
+	scope := Scope{
+		Workspace: ws,
+		BaseRef:   "HEAD",
+		DiffFiles: []ChangedFile{{
+			Path:   rel,
+			Status: "M",
+			Added:  1,
+			Hunks:  []DiffHunk{{NewStart: 1, NewCount: 1}},
+		}},
+		WorkingSet: []WorkingFile{{Path: rel, Reason: "diff"}},
+		AddedLines: 1,
+	}
+
+	got := BuildInput(scope, "", DefaultConfig())
+	if !strings.Contains(got, "strategy: diff_aware_project") {
+		t.Fatalf("expected generic strategy, got:\n%s", got)
+	}
+	if !strings.Contains(got, "null or undefined handling mistakes") {
+		t.Fatalf("expected generic instruction, got:\n%s", got)
+	}
+}
+
+func TestBuildScopeAutoUsesBranchMergeBaseWhenWorkingTreeIsClean(t *testing.T) {
+	ws := t.TempDir()
+	writeReviewFile(t, filepath.Join(ws, "go.mod"), "module example.com/app\n\ngo 1.24.0\n")
+	writeReviewFile(t, filepath.Join(ws, "service", "run.go"), "package service\n\nfunc Run() int { return 1 }\n")
+
+	runGit(t, ws, "init")
+	runGit(t, ws, "config", "user.email", "review@test.local")
+	runGit(t, ws, "config", "user.name", "Review Tester")
+	runGit(t, ws, "add", ".")
+	runGit(t, ws, "commit", "-m", "base")
+	runGit(t, ws, "branch", "-M", "main")
+	runGit(t, ws, "checkout", "-b", "feat/review")
+
+	writeReviewFile(t, filepath.Join(ws, "service", "run.go"), "package service\n\nfunc Run() int { return 2 }\n")
+	runGit(t, ws, "add", "service/run.go")
+	runGit(t, ws, "commit", "-m", "feature change")
+
+	scope, err := BuildScope(ws, "auto", DefaultConfig())
+	if err != nil {
+		t.Fatalf("build scope: %v", err)
+	}
+	if len(scope.DiffFiles) == 0 {
+		t.Fatalf("expected committed branch diff files")
+	}
+	if !strings.Contains(scope.BaseRef, "merge-base") {
+		t.Fatalf("expected merge-base fallback in base_ref, got %q", scope.BaseRef)
+	}
+	if scope.DiffFiles[0].Path != filepath.Join("service", "run.go") {
+		t.Fatalf("unexpected diff path=%q", scope.DiffFiles[0].Path)
 	}
 }
 
@@ -294,4 +353,14 @@ func writeReviewFile(t *testing.T, path, body string) {
 	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
 	}
+}
+
+func runGit(t *testing.T, workspace string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", append([]string{"-C", workspace}, args...)...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %s: %v (%s)", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+	}
+	return strings.TrimSpace(string(out))
 }

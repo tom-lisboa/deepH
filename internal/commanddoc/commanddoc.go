@@ -183,7 +183,7 @@ var docs = []Doc{
 	{
 		Path:     "review",
 		Category: "execution",
-		Summary:  "Review the current git diff with a compact, Go-aware working set",
+		Summary:  "Review project changes with a compact diff-aware working set",
 		Usage: []string{
 			`deeph review [--workspace DIR] [--spec SPEC] [--base REF] [--trace] [--coach=false] [--json] [focus]`,
 		},
@@ -195,7 +195,8 @@ var docs = []Doc{
 			"deeph review --json",
 		},
 		Notes: []string{
-			"Builds a compact review brief from the current git diff plus a Go-aware working set (same package, tests, local imports, reverse imports).",
+			"By default (`--base auto`), reviews local uncommitted changes first; if the working tree is clean, falls back to committed branch diff vs merge-base (`main`/`origin/main` candidates).",
+			"Builds a compact review brief with Go-aware semantic expansion when Go files changed, and a generic project strategy otherwise.",
 			"`--json` prints the generated scope and review input payload instead of running the agent.",
 			"When `crews/reviewflow.yaml` exists, defaults to `@reviewflow`; otherwise falls back to a builtin multiverse review flow rooted at `reviewer` or `guide`.",
 			"Passing `--spec SPEC` keeps the review on that explicit agent or crew instead of auto-selecting the builtin flow.",

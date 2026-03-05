@@ -530,7 +530,7 @@ func handleChatSlashCommand(line, workspace string, meta *chatSessionMeta, entri
 	case cmd == "/exec":
 		return false, handleChatExecSlashCommand(cmd, workspace, meta)
 	default:
-		return false, fmt.Errorf("unknown slash command %q", cmd)
+		return false, fmt.Errorf("unknown slash command %q (use /help)", cmd)
 	}
 }
 

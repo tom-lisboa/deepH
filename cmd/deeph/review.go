@@ -26,7 +26,7 @@ func cmdReview(args []string) error {
 	fs := flag.NewFlagSet("review", flag.ContinueOnError)
 	workspace := fs.String("workspace", ".", "workspace path")
 	spec := fs.String("spec", "", "agent spec or crew used for the review")
-	baseRef := fs.String("base", "HEAD", "git base ref used for diff-aware review")
+	baseRef := fs.String("base", "auto", "git base ref used for diff-aware review (default: auto)")
 	showTrace := fs.Bool("trace", false, "print review scope summary before running")
 	showCoach := fs.Bool("coach", true, "show occasional semantic tips while waiting")
 	jsonOut := fs.Bool("json", false, "print diff-aware review payload as JSON instead of running")
@@ -157,7 +157,7 @@ func maybeRunReviewMultiverse(ctx context.Context, workspace string, p *project.
 			return nil, nil, runtime.ExecutionPlan{}, nil, err
 		}
 	case useBuiltinFlow:
-		universes = buildBuiltinReviewUniverses(baseSpec, synthSpec, input)
+		universes = buildBuiltinReviewUniverses(baseSpec, synthSpec, input, scope)
 	}
 	if len(universes) <= 1 {
 		return nil, nil, runtime.ExecutionPlan{}, nil, nil
@@ -242,7 +242,7 @@ func reviewDisplaySpec(selected string, baseSpec string, synthSpec string, built
 	return fmt.Sprintf("builtin:reviewflow(%s>%s)", strings.TrimSpace(baseSpec), strings.TrimSpace(synthSpec))
 }
 
-func buildBuiltinReviewUniverses(baseSpec string, synthSpec string, input string) []multiverseUniverse {
+func buildBuiltinReviewUniverses(baseSpec string, synthSpec string, input string, scope reviewscope.Scope) []multiverseUniverse {
 	baseSpec = strings.TrimSpace(baseSpec)
 	synthSpec = strings.TrimSpace(synthSpec)
 	if baseSpec == "" {
@@ -250,6 +250,16 @@ func buildBuiltinReviewUniverses(baseSpec string, synthSpec string, input string
 	}
 	if synthSpec == "" {
 		synthSpec = baseSpec
+	}
+	langLabel := "go_focus"
+	langMode := "go-specific"
+	langMessage := "Focus on Go semantics: context cancellation, goroutine leaks, channel misuse, nil/pointer handling, interface traps, error wrapping, sync/race hazards and io/resource cleanup."
+	langInputNote := "builtin review universe go-specific"
+	if scope.GoChanged == 0 {
+		langLabel = "impl_focus"
+		langMode = "implementation-specific"
+		langMessage = "Focus on implementation hazards for the changed stack: async/concurrency races, null or undefined mistakes, error propagation gaps, resource lifecycle issues, boundary validation misses, and contract drift."
+		langInputNote = "builtin review universe implementation-specific"
 	}
 	return []multiverseUniverse{
 		{
@@ -282,9 +292,9 @@ func buildBuiltinReviewUniverses(baseSpec string, synthSpec string, input string
 		},
 		{
 			ID:              "u3",
-			Label:           "go_focus",
+			Label:           langLabel,
 			Spec:            baseSpec,
-			Input:           strings.TrimSpace("[review_mode]\nmode: go-specific\nFocus on Go semantics: context cancellation, goroutine leaks, channel misuse, nil/pointer handling, interface traps, error wrapping, sync/race hazards and io/resource cleanup.\n\n" + input),
+			Input:           strings.TrimSpace("[review_mode]\nmode: " + langMode + "\n" + langMessage + "\n\n" + input),
 			Source:          "builtin.reviewflow",
 			Index:           2,
 			InputPort:       "context",
@@ -292,7 +302,7 @@ func buildBuiltinReviewUniverses(baseSpec string, synthSpec string, input string
 			OutputKind:      string(typesys.KindDiagnosticBuild),
 			MergePolicy:     "append",
 			HandoffMaxChars: 260,
-			InputNote:       "builtin review universe go-specific",
+			InputNote:       langInputNote,
 		},
 		{
 			ID:              "u4",

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"deeph/internal/project"
+	"deeph/internal/reviewscope"
 )
 
 func TestDefaultReviewAgentSpecPrefersReviewerThenGuide(t *testing.T) {
@@ -79,7 +80,7 @@ func TestResolveDefaultReviewTargetUsesBuiltinOnlyForImplicitFallback(t *testing
 }
 
 func TestBuildBuiltinReviewUniversesCreatesSynthDAG(t *testing.T) {
-	universes := buildBuiltinReviewUniverses("reviewer", "review_synth", "review input")
+	universes := buildBuiltinReviewUniverses("reviewer", "review_synth", "review input", reviewscope.Scope{GoChanged: 1})
 	if len(universes) != 5 {
 		t.Fatalf("universes=%d", len(universes))
 	}
@@ -91,6 +92,19 @@ func TestBuildBuiltinReviewUniversesCreatesSynthDAG(t *testing.T) {
 	}
 	if got := universes[4].DependsOn; len(got) != 4 || got[0] != "u1" || got[3] != "u4" {
 		t.Fatalf("depends_on=%v", got)
+	}
+}
+
+func TestBuildBuiltinReviewUniversesUsesGenericFocusWhenNoGoFilesChanged(t *testing.T) {
+	universes := buildBuiltinReviewUniverses("reviewer", "review_synth", "review input", reviewscope.Scope{})
+	if len(universes) != 5 {
+		t.Fatalf("universes=%d", len(universes))
+	}
+	if universes[2].Label != "impl_focus" {
+		t.Fatalf("label=%q", universes[2].Label)
+	}
+	if !strings.Contains(universes[2].Input, "implementation hazards") {
+		t.Fatalf("input=%q", universes[2].Input)
 	}
 }
 

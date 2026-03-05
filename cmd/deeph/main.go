@@ -94,7 +94,7 @@ func printUsage() {
 	fmt.Println("  deeph studio [--workspace DIR]")
 	fmt.Println("  deeph update [--owner NAME] [--repo NAME] [--tag latest|vX.Y.Z] [--check]")
 	fmt.Println("  deeph validate [--workspace DIR]")
-	fmt.Println(`  deeph review [--workspace DIR] [--spec SPEC] [--base REF] [--trace] [--coach=false] [--json] [focus]`)
+	fmt.Println(`  deeph review [--workspace DIR] [--spec SPEC] [--base REF|auto] [--trace] [--coach=false] [--json] [focus]`)
 	fmt.Println(`  deeph diagnose [--workspace DIR] [--spec SPEC] [--base REF] [--trace] [--coach=false] [--fix] [--yes] [--json] [--file PATH] [issue]`)
 	fmt.Println(`  deeph edit [--workspace DIR] [--trace] [--coach=false] [task]`)
 	fmt.Println(`  deeph trace [--workspace DIR] [--json] [--multiverse N] "<agent|a+b|a>b|a+b>c|@crew|crew:name>" [input]`)

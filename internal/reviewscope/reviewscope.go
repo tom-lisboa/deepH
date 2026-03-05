@@ -155,8 +155,17 @@ func BuildScope(workspace, baseRef string, cfg Config) (Scope, error) {
 
 func BuildInput(scope Scope, focus string, cfg Config) string {
 	p := &promptBuilder{max: cfg.MaxInputChars}
+	isGoScope := scope.GoChanged > 0
+	strategy := "diff_aware_project"
+	instruction := "instruction: findings first. prioritize bugs, behavioral regressions, missing tests, API or data-contract drift, null or undefined handling mistakes, async or concurrency hazards, boundary validation gaps, resource leaks, and risky assumptions. cite file paths and explain impact. if no issues, say that explicitly and mention residual risks."
+	semanticExpansion := "semantic_expansion: prioritize files directly touched by the diff first, then nearby tests and integration boundaries."
+	if isGoScope {
+		strategy = "diff_aware_go"
+		instruction = "instruction: findings first. prioritize bugs, regressions, missing tests, concurrency, context cancellation, nil/pointer mistakes, API drift, resource leaks, and risky assumptions. cite file paths and explain impact. if no issues, say that explicitly and mention residual risks."
+		semanticExpansion = "semantic_expansion: prefer files that declare or reference changed top-level Go symbols before generic package context."
+	}
 	p.addLine("[review_scope]")
-	p.addLine("strategy: diff_aware_go")
+	p.addLine("strategy: " + strategy)
 	p.addLine("workspace: " + scope.Workspace)
 	p.addLine("base_ref: " + scope.BaseRef)
 	if scope.ModulePath != "" {
@@ -171,9 +180,9 @@ func BuildInput(scope Scope, focus string, cfg Config) string {
 	if strings.TrimSpace(focus) != "" {
 		p.addLine("review_focus: " + trimFocusLine(focus, 220))
 	}
-	p.addLine("instruction: findings first. prioritize bugs, regressions, missing tests, concurrency, context cancellation, nil/pointer mistakes, API drift, resource leaks, and risky assumptions. cite file paths and explain impact. if no issues, say that explicitly and mention residual risks.")
+	p.addLine(instruction)
 	p.addLine("preferred_output: use compact structured sections when practical. findings should include severity, file, title, impact, and optional evidence. if no convincing issue exists, say `no_issues: true` and list residual risks or testing gaps.")
-	p.addLine("semantic_expansion: prefer files that declare or reference changed top-level Go symbols before generic package context.")
+	p.addLine(semanticExpansion)
 	p.addLine("changed:")
 	for _, file := range scope.DiffFiles {
 		line := fmt.Sprintf("- %s %s +%d -%d hunks=%d", file.Status, file.Path, file.Added, file.Deleted, len(file.Hunks))
@@ -287,8 +296,8 @@ func ParseUnifiedDiff(diffText string) []ChangedFile {
 
 func gitRelativeDiff(workspace, baseRef string) (diffText string, effectiveBase string, err error) {
 	baseRef = strings.TrimSpace(baseRef)
-	if baseRef == "" {
-		baseRef = "HEAD"
+	if baseRef == "" || strings.EqualFold(baseRef, "auto") {
+		return gitRelativeDiffAuto(workspace)
 	}
 	args := []string{"diff", "--no-ext-diff", "--unified=0", "--relative"}
 	if baseRef != "" {
@@ -307,6 +316,122 @@ func gitRelativeDiff(workspace, baseRef string) (diffText string, effectiveBase 
 		return "", "", runErr
 	}
 	return fallback, "working-tree", nil
+}
+
+func gitRelativeDiffAuto(workspace string) (diffText string, effectiveBase string, err error) {
+	workingDiff, _, workingErr := gitRelativeDiffAgainstRef(workspace, "HEAD")
+	if workingErr == nil {
+		if strings.TrimSpace(workingDiff) != "" {
+			return workingDiff, "HEAD", nil
+		}
+		hasUntracked, err := gitHasUntrackedFiles(workspace)
+		if err == nil && hasUntracked {
+			return workingDiff, "HEAD", nil
+		}
+		if branchDiff, branchBase, ok := gitRelativeDiffAgainstBestMergeBase(workspace); ok {
+			return branchDiff, branchBase, nil
+		}
+		return workingDiff, "HEAD", nil
+	}
+
+	workingTreeDiff, fallbackErr := runGitCapture(workspace, "diff", "--no-ext-diff", "--unified=0", "--relative", "--")
+	if fallbackErr != nil {
+		return "", "", workingErr
+	}
+	if strings.TrimSpace(workingTreeDiff) != "" {
+		return workingTreeDiff, "working-tree", nil
+	}
+	hasUntracked, err := gitHasUntrackedFiles(workspace)
+	if err == nil && hasUntracked {
+		return workingTreeDiff, "working-tree", nil
+	}
+	return workingTreeDiff, "working-tree", nil
+}
+
+func gitRelativeDiffAgainstRef(workspace, ref string) (diffText string, effectiveBase string, err error) {
+	args := []string{"diff", "--no-ext-diff", "--unified=0", "--relative"}
+	ref = strings.TrimSpace(ref)
+	if ref != "" {
+		args = append(args, ref)
+	}
+	args = append(args, "--")
+	out, err := runGitCapture(workspace, args...)
+	if err != nil {
+		return "", "", err
+	}
+	if ref == "" {
+		ref = "working-tree"
+	}
+	return out, ref, nil
+}
+
+func gitRelativeDiffAgainstBestMergeBase(workspace string) (diffText string, effectiveBase string, ok bool) {
+	candidates := gitDiffBaseCandidates(workspace)
+	for _, candidate := range candidates {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			continue
+		}
+		if _, err := runGitCapture(workspace, "rev-parse", "--verify", candidate); err != nil {
+			continue
+		}
+		mergeBase, err := runGitCapture(workspace, "merge-base", "HEAD", candidate)
+		if err != nil {
+			continue
+		}
+		mergeBase = strings.TrimSpace(mergeBase)
+		if mergeBase == "" {
+			continue
+		}
+		diff, err := runGitCapture(workspace, "diff", "--no-ext-diff", "--unified=0", "--relative", mergeBase+"..HEAD", "--")
+		if err != nil {
+			continue
+		}
+		if strings.TrimSpace(diff) == "" {
+			continue
+		}
+		return diff, fmt.Sprintf("%s..HEAD (merge-base vs %s)", shortGitRef(mergeBase), candidate), true
+	}
+	return "", "", false
+}
+
+func gitDiffBaseCandidates(workspace string) []string {
+	out := make([]string, 0, 8)
+	if upstream, err := runGitCapture(workspace, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"); err == nil {
+		upstream = strings.TrimSpace(upstream)
+		if upstream != "" && upstream != "HEAD" && upstream != "@{upstream}" {
+			out = append(out, upstream)
+		}
+	}
+	if originHead, err := runGitCapture(workspace, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"); err == nil {
+		originHead = strings.TrimSpace(originHead)
+		if originHead != "" {
+			out = append(out, originHead)
+		}
+	}
+	out = append(out, "origin/main", "origin/master", "main", "master")
+	return dedupeStrings(out)
+}
+
+func shortGitRef(ref string) string {
+	ref = strings.TrimSpace(ref)
+	if len(ref) > 12 {
+		return ref[:12]
+	}
+	return ref
+}
+
+func gitHasUntrackedFiles(workspace string) (bool, error) {
+	out, err := runGitCapture(workspace, "ls-files", "--others", "--exclude-standard", "--")
+	if err != nil {
+		return false, err
+	}
+	for _, line := range strings.Split(strings.ReplaceAll(out, "\r\n", "\n"), "\n") {
+		if strings.TrimSpace(line) != "" {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func gitUntrackedFiles(workspace string) ([]string, error) {

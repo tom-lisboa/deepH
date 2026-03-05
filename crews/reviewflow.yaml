@@ -22,8 +22,8 @@ universes:
     handoff_max_chars: 260
     input_prefix: |
       [review_mode]
-      mode: go-specific
-      Focus on Go semantics: context cancellation, goroutine leaks, channel misuse, nil and pointer handling, interface traps, error wrapping, sync hazards and io or resource cleanup.
+      mode: implementation-specific
+      Focus on implementation hazards for the changed stack. In Go: context cancellation, goroutine leaks, channel misuse, nil/pointer handling, interface traps and error wrapping. In JS/TS or other stacks: async race conditions, null/undefined mistakes, error propagation gaps, contract drift and resource lifecycle cleanup.
 
   - name: tests_focus
     spec: reviewer

@@ -1,6 +1,12 @@
 package main
 
-import "deeph/internal/runtime"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+
+	"deeph/internal/runtime"
+)
 
 type chatRouteKind string
 
@@ -44,6 +50,13 @@ func routeChatTurn(workspace string, meta *chatSessionMeta, entries []chatSessio
 	}
 
 	if len(line) > 0 && line[0] == '/' {
+		if shouldTreatSlashLikePathInput(line) {
+			if meta != nil {
+				meta.PendingPlan = nil
+				meta.PendingExec = nil
+			}
+			return chatRoute{Kind: chatRouteLLM}, nil
+		}
 		if meta != nil {
 			meta.PendingPlan = nil
 			meta.PendingExec = nil
@@ -85,4 +98,27 @@ func routeChatTurn(workspace string, meta *chatSessionMeta, entries []chatSessio
 		meta.PendingExec = nil
 	}
 	return chatRoute{Kind: chatRouteLLM}, nil
+}
+
+func shouldTreatSlashLikePathInput(line string) bool {
+	token := strings.TrimSpace(line)
+	if token == "" || token[0] != '/' {
+		return false
+	}
+	if i := strings.IndexAny(token, " \t"); i >= 0 {
+		token = token[:i]
+	}
+	switch token {
+	case "/help", "/mode", "/status", "/history", "/trace", "/exec", "/exit", "/quit":
+		return false
+	}
+	if !filepath.IsAbs(token) {
+		return false
+	}
+	if _, err := os.Stat(token); err == nil {
+		return true
+	}
+	// If it looks like a deep absolute path, prefer treating it as user content
+	// instead of returning an unknown slash command error.
+	return strings.Contains(strings.TrimPrefix(token, "/"), "/")
 }

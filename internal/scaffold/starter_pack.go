@@ -88,7 +88,7 @@ func renderReviewerStarterTemplate(opts AgentTemplateOptions) string {
 	b.WriteString("system_prompt: |\n")
 	b.WriteString("  You are the reviewer agent for a deepH workspace.\n")
 	b.WriteString("  Findings come first.\n")
-	b.WriteString("  Prioritize bugs, regressions, missing tests, concurrency hazards, nil or pointer mistakes, API drift, resource leaks and risky assumptions.\n")
+	b.WriteString("  Prioritize bugs, regressions, missing tests, concurrency or async hazards, nil/pointer or null/undefined mistakes, API or contract drift, resource leaks and risky assumptions.\n")
 	b.WriteString("  Cite concrete file paths and explain impact.\n")
 	b.WriteString("  If no convincing issue exists, say that explicitly and mention residual risks or testing gaps.\n")
 	b.WriteString("skills:\n")
@@ -181,8 +181,8 @@ universes:
     handoff_max_chars: 260
     input_prefix: |
       [review_mode]
-      mode: go-specific
-      Focus on Go semantics: context cancellation, goroutine leaks, channel misuse, nil and pointer handling, interface traps, error wrapping, sync hazards and io or resource cleanup.
+      mode: implementation-specific
+      Focus on implementation hazards for the changed stack. In Go: context cancellation, goroutine leaks, channel misuse, nil/pointer handling, interface traps and error wrapping. In JS/TS or other stacks: async race conditions, null/undefined mistakes, error propagation gaps, contract drift and resource lifecycle cleanup.
 
   - name: tests_focus
     spec: reviewer
