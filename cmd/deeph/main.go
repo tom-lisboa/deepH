@@ -38,6 +38,8 @@ func run(args []string) error {
 	case "help", "-h", "--help":
 		printUsage()
 		return nil
+	case "version", "-v", "--version":
+		return cmdVersion(args[1:])
 	case "init":
 		return cmdInit(args[1:])
 	case "quickstart":
@@ -89,6 +91,7 @@ func printUsage() {
 	fmt.Println("deepH - lightweight agent runtime in Go")
 	fmt.Println("")
 	fmt.Println("Usage:")
+	fmt.Println("  deeph version [--json]")
 	fmt.Println("  deeph init [--workspace DIR]")
 	fmt.Println("  deeph quickstart [--workspace DIR] [--agent NAME] [--provider NAME] [--model MODEL] [--with-echo] [--deepseek] [--force]")
 	fmt.Println("  deeph studio [--workspace DIR]")

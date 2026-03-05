@@ -14,6 +14,7 @@ const (
 	chatUIModeFull    = "full"
 	chatUIModeCompact = "compact"
 	chatUIModeFocus   = "focus"
+	uiPanelWidth      = 90
 )
 
 func stdoutThemeEnabled() bool {
@@ -61,6 +62,55 @@ func uiSectionTitle(title string) string {
 		return title
 	}
 	return uiStrong(title)
+}
+
+func uiPanelRule(width int) string {
+	if width < 8 {
+		width = 8
+	}
+	return "+" + strings.Repeat("-", width-2) + "+"
+}
+
+func uiPanelLine(width int, text string) string {
+	if width < 8 {
+		width = 8
+	}
+	inner := width - 4
+	text = strings.TrimSpace(text)
+	if inner > 0 && len(text) > inner {
+		if inner <= 3 {
+			text = text[:inner]
+		} else {
+			text = text[:inner-3] + "..."
+		}
+	}
+	return fmt.Sprintf("| %-*s |", inner, text)
+}
+
+func printUIPanel(title string, rows ...string) {
+	rule := uiPanelRule(uiPanelWidth)
+	if stdoutThemeEnabled() {
+		fmt.Println(uiMuted(rule))
+	} else {
+		fmt.Println(rule)
+	}
+	head := strings.TrimSpace(title)
+	if head != "" {
+		fmt.Println(uiPanelLine(uiPanelWidth, head))
+		if stdoutThemeEnabled() {
+			fmt.Println(uiMuted(rule))
+		} else {
+			fmt.Println(rule)
+		}
+	}
+	for _, row := range rows {
+		fmt.Println(uiPanelLine(uiPanelWidth, row))
+	}
+	if stdoutThemeEnabled() {
+		fmt.Println(uiMuted(rule))
+	} else {
+		fmt.Println(rule)
+	}
 }
 
 func normalizeChatUIMode(mode string) string {
@@ -130,23 +180,26 @@ func printChatSessionIntro(created bool, meta *chatSessionMeta, workspace string
 	if created {
 		label = "created"
 	}
-	title := "deepH chat"
-	if stdoutThemeEnabled() {
-		title = uiStrong("deepH") + " " + uiAccent("chat")
+	sessionID := strings.TrimSpace(meta.ID)
+	if sessionID == "" {
+		sessionID = "(new)"
 	}
-	fmt.Printf("%s %s\n", title, uiBadge(label, chatBannerTone(created)))
-	fmt.Printf("%s %s   %s %s   %s %d\n",
-		uiMuted("workspace:"), workspace,
-		uiMuted("agent:"), strings.TrimSpace(meta.AgentSpec),
-		uiMuted("history:"), historyEntries,
+	printUIPanel(
+		fmt.Sprintf(">_ deepH chat [%s]", label),
+		fmt.Sprintf("agent: %s   mode: %s   history: %d", strings.TrimSpace(meta.AgentSpec), normalizeChatUIMode(meta.UIMode), historyEntries),
+		"workspace: "+workspace,
+		"session: "+sessionID,
+		"commands: /help /mode /status /history /trace /exec /exit",
+		"tip: type `deeph <command>` directly to run deeph commands from chat",
 	)
-	fmt.Printf("%s %s\n", uiMuted("mode:"), normalizeChatUIMode(meta.UIMode))
-	fmt.Printf("%s %s\n", uiMuted("commands:"), "/help /mode /status /history /trace /exec /exit")
 }
 
 func printStudioTitle() {
-	fmt.Println(uiStrong("deepH") + " " + uiAccent("STUDIO"))
-	fmt.Println(uiMuted("=============="))
+	printUIPanel(
+		">_ deepH Studio",
+		"Control center for setup, review, run and chat",
+		"use numbers or aliases: review | chat | run | switch | doctor | help | quit",
+	)
 }
 
 func formatStudioOption(index, label string) string {

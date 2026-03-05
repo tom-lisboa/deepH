@@ -1,6 +1,13 @@
 package main
 
-import "deeph/internal/runtime"
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"deeph/internal/runtime"
+)
 
 type chatRouteKind string
 
@@ -43,7 +50,24 @@ func routeChatTurn(workspace string, meta *chatSessionMeta, entries []chatSessio
 		}
 	}
 
+	if handled, replies, err := maybeHandleDirectDeephCommand(workspace, meta, line); handled {
+		if err != nil {
+			return chatRoute{}, err
+		}
+		return chatRoute{
+			Kind:    chatRouteHandled,
+			Replies: replies,
+		}, nil
+	}
+
 	if len(line) > 0 && line[0] == '/' {
+		if shouldTreatSlashLikePathInput(line) {
+			if meta != nil {
+				meta.PendingPlan = nil
+				meta.PendingExec = nil
+			}
+			return chatRoute{Kind: chatRouteLLM}, nil
+		}
 		if meta != nil {
 			meta.PendingPlan = nil
 			meta.PendingExec = nil
@@ -85,4 +109,81 @@ func routeChatTurn(workspace string, meta *chatSessionMeta, entries []chatSessio
 		meta.PendingExec = nil
 	}
 	return chatRoute{Kind: chatRouteLLM}, nil
+}
+
+func maybeHandleDirectDeephCommand(workspace string, meta *chatSessionMeta, line string) (bool, []chatReply, error) {
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" {
+		return false, nil, nil
+	}
+	lower := strings.ToLower(trimmed)
+	if !strings.HasPrefix(lower, "deeph ") && lower != "deeph" {
+		return false, nil, nil
+	}
+
+	req, err := parseChatExecLine(trimmed, workspace)
+	if err != nil {
+		return true, []chatReply{{
+			Agent: chatReplyAgent(meta),
+			Error: err.Error(),
+		}}, nil
+	}
+	if meta != nil {
+		meta.PendingPlan = nil
+	}
+	if chatExecRequiresConfirm(req.Path) && !req.Confirmed {
+		if meta != nil {
+			cp := req
+			cp.Args = append([]string{}, req.Args...)
+			meta.PendingExec = &cp
+		}
+		return true, []chatReply{{
+			Agent: chatReplyAgent(meta),
+			Text:  fmt.Sprintf("Comando detectado: `%s`. Responda `sim` para confirmar ou `nao` para cancelar.", req.Display),
+		}}, nil
+	}
+	if meta != nil {
+		meta.PendingExec = nil
+	}
+
+	receipt, execErr := executeChatExecRequest(req)
+	recordLastCommandReceipt(meta, receipt)
+	if execErr != nil {
+		return true, []chatReply{{
+			Agent: chatReplyAgent(meta),
+			Error: execErr.Error(),
+		}}, nil
+	}
+	return true, []chatReply{{
+		Agent: chatReplyAgent(meta),
+		Text:  receipt.Summary,
+	}}, nil
+}
+
+func chatReplyAgent(meta *chatSessionMeta) string {
+	if meta == nil {
+		return ""
+	}
+	return meta.AgentSpec
+}
+
+func shouldTreatSlashLikePathInput(line string) bool {
+	token := strings.TrimSpace(line)
+	if token == "" || token[0] != '/' {
+		return false
+	}
+	if i := strings.IndexAny(token, " \t"); i >= 0 {
+		token = token[:i]
+	}
+	switch token {
+	case "/help", "/mode", "/status", "/history", "/trace", "/exec", "/exit", "/quit":
+		return false
+	}
+	if !filepath.IsAbs(token) {
+		return false
+	}
+	if _, err := os.Stat(token); err == nil {
+		return true
+	}
+	return strings.Contains(strings.TrimPrefix(token, "/"), "/")
 }

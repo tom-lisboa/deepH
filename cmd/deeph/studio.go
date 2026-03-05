@@ -123,8 +123,27 @@ func printStudioScreen(workspace string, state *studioState) {
 	resume := buildStudioQuickResumePlan(status, state)
 	fmt.Print("\033[2J\033[H")
 	printStudioTitle()
+
+	chips := []string{}
+	if !status.Initialized {
+		chips = append(chips, uiBadge("setup-needed", "warn"))
+	} else if strings.TrimSpace(status.LoadError) != "" {
+		chips = append(chips, uiBadge("load-error", "error"))
+	} else {
+		chips = append(chips, uiBadge("ready", "success"))
+	}
+	providerName := strings.TrimSpace(status.DefaultProvider)
+	if providerName == "" {
+		providerName = "none"
+	}
+	chips = append(chips, uiBadge("provider:"+providerName, "accent"))
+	chips = append(chips, uiBadge(fmt.Sprintf("agents:%d", status.Agents), "muted"))
+	chips = append(chips, uiBadge(fmt.Sprintf("sessions:%d", status.Sessions), "muted"))
+	fmt.Println(strings.Join(chips, "  "))
+	fmt.Println("")
+
 	fmt.Println(uiSectionTitle("Workspace"))
-	fmt.Printf("%s %s\n", uiMuted("current:"), status.Workspace)
+	fmt.Printf("%s %s\n", uiMuted("path:"), status.Workspace)
 	if status.LatestSession != "" {
 		fmt.Printf("%s %s (%s)\n", uiMuted("latest session:"), status.LatestSession, status.LatestAgentSpec)
 	}
@@ -149,7 +168,7 @@ func printStudioScreen(workspace string, state *studioState) {
 	}
 	fmt.Println("")
 	fmt.Println(uiSectionTitle("Quick Resume"))
-	fmt.Println(formatStudioOption("1", "Quick Resume"))
+	fmt.Println(formatStudioOption("1", "Quick Resume (recommended)"))
 	if resume.Available {
 		fmt.Printf("%s %s\n", uiMuted("next:"), resume.Detail)
 	} else {
@@ -157,11 +176,11 @@ func printStudioScreen(workspace string, state *studioState) {
 	}
 	fmt.Printf("%s %s\n", uiMuted("recommended:"), studioRecommendedAction(status, resume))
 	fmt.Println("")
-	fmt.Println(uiSectionTitle("Start"))
+	fmt.Println(uiSectionTitle("Bootstrap"))
 	fmt.Println(formatStudioOption("2", "Quickstart (DeepSeek)"))
 	fmt.Println(formatStudioOption("3", "Quickstart (local mock)"))
 	fmt.Println("")
-	fmt.Println(uiSectionTitle("Build"))
+	fmt.Println(uiSectionTitle("Configure"))
 	fmt.Println(formatStudioOption("4", "Provider add (DeepSeek)"))
 	fmt.Println(formatStudioOption("5", "Agent create"))
 	fmt.Println(formatStudioOption("6", "Validate workspace"))
@@ -169,12 +188,12 @@ func printStudioScreen(workspace string, state *studioState) {
 	fmt.Println(uiSectionTitle("Review"))
 	fmt.Println(formatStudioOption("7", "Review current changes"))
 	fmt.Println("")
-	fmt.Println(uiSectionTitle("Operate"))
+	fmt.Println(uiSectionTitle("Run"))
 	fmt.Println(formatStudioOption("8", "Run once"))
 	fmt.Println(formatStudioOption("9", "Chat"))
 	fmt.Println(formatStudioOption("10", "Switch workspace"))
 	fmt.Println("")
-	fmt.Println(uiSectionTitle("Advanced"))
+	fmt.Println(uiSectionTitle("Tools"))
 	fmt.Println(formatStudioOption("11", "Studio doctor"))
 	fmt.Println(formatStudioOption("12", "Command dictionary"))
 	fmt.Println(formatStudioOption("13", "Update deeph"))
@@ -185,6 +204,7 @@ func printStudioScreen(workspace string, state *studioState) {
 	fmt.Println(uiSectionTitle("Tips"))
 	fmt.Printf("%s %s\n", uiMuted("-"), "Use option 1 to jump back into the last chat, or option 7 to review the current diff.")
 	fmt.Printf("%s %s\n", uiMuted("-"), "Keep providers and agents clean with option 6 before larger runs.")
+	fmt.Printf("%s %s\n", uiMuted("-"), "From chat, type `deeph <command>` directly for operational actions.")
 	fmt.Println("")
 }
 
@@ -561,15 +581,14 @@ func maybeRunStudioLauncher(reader *bufio.Reader, state *studioState, currentWor
 	}
 
 	fmt.Print("\033[2J\033[H")
-	fmt.Println("deepH STUDIO")
-	fmt.Println("==============")
+	printStudioTitle()
 	fmt.Printf("No workspace found at %s\n", currentWorkspace)
 	fmt.Println("")
-	fmt.Println("1) Create workspace (DeepSeek)")
-	fmt.Println("2) Create workspace (local mock)")
-	fmt.Println("3) Open existing workspace")
-	fmt.Println("4) Calculator workspace")
-	fmt.Println("0) Exit")
+	fmt.Println(formatStudioOption("1", "Create workspace (DeepSeek)"))
+	fmt.Println(formatStudioOption("2", "Create workspace (local mock)"))
+	fmt.Println(formatStudioOption("3", "Open existing workspace"))
+	fmt.Println(formatStudioOption("4", "Calculator workspace"))
+	fmt.Println(formatStudioOption("0", "Exit"))
 	fmt.Println("")
 
 	choice, err := promptLine(reader, "Select option", "1")
@@ -684,9 +703,9 @@ func requireInitializedWorkspace(workspace string) error {
 
 func promptLine(reader *bufio.Reader, label, def string) (string, error) {
 	if strings.TrimSpace(def) != "" {
-		fmt.Printf("%s [%s]: ", label, def)
+		fmt.Printf("%s %s [%s]: ", uiMuted(">"), label, def)
 	} else {
-		fmt.Printf("%s: ", label)
+		fmt.Printf("%s %s: ", uiMuted(">"), label)
 	}
 	raw, err := reader.ReadString('\n')
 	if err != nil {

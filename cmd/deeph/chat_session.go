@@ -475,6 +475,7 @@ func handleChatSlashCommand(line, workspace string, meta *chatSessionMeta, entri
 		fmt.Println("  /trace   show compact execution plan summary")
 		fmt.Println("  /exec    execute a deeph command inside this chat session")
 		fmt.Println("  /exit    end chat session")
+		fmt.Println("Tip: type `deeph <command>` directly to run commands from chat.")
 		return false, nil
 	case cmd == "/mode":
 		current := chatUIModeFull
@@ -530,7 +531,7 @@ func handleChatSlashCommand(line, workspace string, meta *chatSessionMeta, entri
 	case cmd == "/exec":
 		return false, handleChatExecSlashCommand(cmd, workspace, meta)
 	default:
-		return false, fmt.Errorf("unknown slash command %q", cmd)
+		return false, fmt.Errorf("unknown slash command %q (use /help)", cmd)
 	}
 }
 

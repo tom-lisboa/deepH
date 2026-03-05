@@ -108,6 +108,23 @@ var docs = []Doc{
 		},
 	},
 	{
+		Path:     "version",
+		Category: "meta",
+		Summary:  "Show installed deepH version/build details",
+		Usage: []string{
+			"deeph version [--json]",
+			"deeph --version",
+			"deeph -v",
+		},
+		Examples: []string{
+			"deeph version",
+			"deeph version --json",
+		},
+		Notes: []string{
+			"Release binaries embed tag/commit/build date during CI.",
+		},
+	},
+	{
 		Path:     "init",
 		Category: "workspace",
 		Summary:  "Initialize a deepH workspace (deeph.yaml, folders, examples)",
