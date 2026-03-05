@@ -14,6 +14,7 @@ const (
 	chatUIModeFull    = "full"
 	chatUIModeCompact = "compact"
 	chatUIModeFocus   = "focus"
+	uiShellWidth      = 74
 )
 
 func stdoutThemeEnabled() bool {
@@ -61,6 +62,13 @@ func uiSectionTitle(title string) string {
 		return title
 	}
 	return uiStrong(title)
+}
+
+func uiRule(width int) string {
+	if width <= 0 {
+		width = uiShellWidth
+	}
+	return uiMuted(strings.Repeat("-", width))
 }
 
 func normalizeChatUIMode(mode string) string {
@@ -134,6 +142,7 @@ func printChatSessionIntro(created bool, meta *chatSessionMeta, workspace string
 	if stdoutThemeEnabled() {
 		title = uiStrong("deepH") + " " + uiAccent("chat")
 	}
+	fmt.Println(uiRule(uiShellWidth))
 	fmt.Printf("%s %s\n", title, uiBadge(label, chatBannerTone(created)))
 	fmt.Printf("%s %s   %s %s   %s %d\n",
 		uiMuted("workspace:"), workspace,
@@ -142,11 +151,15 @@ func printChatSessionIntro(created bool, meta *chatSessionMeta, workspace string
 	)
 	fmt.Printf("%s %s\n", uiMuted("mode:"), normalizeChatUIMode(meta.UIMode))
 	fmt.Printf("%s %s\n", uiMuted("commands:"), "/help /mode /status /history /trace /exec /exit")
+	fmt.Printf("%s %s\n", uiMuted("direct:"), "type `deeph <command>` directly (safe commands run now)")
+	fmt.Println(uiRule(uiShellWidth))
 }
 
 func printStudioTitle() {
-	fmt.Println(uiStrong("deepH") + " " + uiAccent("STUDIO"))
-	fmt.Println(uiMuted("=============="))
+	fmt.Println(uiRule(uiShellWidth))
+	fmt.Println(uiStrong("deepH") + " " + uiAccent("STUDIO") + " " + uiBadge("interactive", "accent"))
+	fmt.Println(uiMuted("Control center for workspace setup, review, run and chat"))
+	fmt.Println(uiRule(uiShellWidth))
 }
 
 func formatStudioOption(index, label string) string {

@@ -133,3 +133,50 @@ func TestRouteChatTurnTreatsAbsolutePathAsUserInput(t *testing.T) {
 		t.Fatalf("expected no immediate replies, got=%d", len(route.Replies))
 	}
 }
+
+func TestRouteChatTurnAutoExecutesDirectSafeDeephCommand(t *testing.T) {
+	ws := t.TempDir()
+	meta := &chatSessionMeta{ID: "s5", AgentSpec: "guide"}
+
+	route, err := routeChatTurn(ws, meta, nil, "deeph command list", runtime.ExecutionPlan{}, nil, nil)
+	if err != nil {
+		t.Fatalf("route chat turn: %v", err)
+	}
+	if route.Kind != chatRouteHandled {
+		t.Fatalf("kind=%q", route.Kind)
+	}
+	if len(route.Replies) != 1 {
+		t.Fatalf("replies=%d", len(route.Replies))
+	}
+	if !strings.Contains(route.Replies[0].Text, "Executei `deeph command list`.") {
+		t.Fatalf("reply=%q", route.Replies[0].Text)
+	}
+	if meta.PendingExec != nil {
+		t.Fatalf("expected no pending exec, got %+v", meta.PendingExec)
+	}
+}
+
+func TestRouteChatTurnDirectCommandRequestsConfirmationWhenRequired(t *testing.T) {
+	ws := t.TempDir()
+	meta := &chatSessionMeta{ID: "s6", AgentSpec: "guide"}
+
+	route, err := routeChatTurn(ws, meta, nil, "deeph quickstart --workspace .", runtime.ExecutionPlan{}, nil, nil)
+	if err != nil {
+		t.Fatalf("route chat turn: %v", err)
+	}
+	if route.Kind != chatRouteHandled {
+		t.Fatalf("kind=%q", route.Kind)
+	}
+	if len(route.Replies) != 1 {
+		t.Fatalf("replies=%d", len(route.Replies))
+	}
+	if !strings.Contains(route.Replies[0].Text, "Responda `sim` para confirmar") {
+		t.Fatalf("reply=%q", route.Replies[0].Text)
+	}
+	if meta.PendingExec == nil {
+		t.Fatalf("expected pending exec")
+	}
+	if meta.PendingExec.Path != "quickstart" {
+		t.Fatalf("path=%q", meta.PendingExec.Path)
+	}
+}

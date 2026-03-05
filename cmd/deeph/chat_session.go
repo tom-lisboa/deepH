@@ -475,6 +475,7 @@ func handleChatSlashCommand(line, workspace string, meta *chatSessionMeta, entri
 		fmt.Println("  /trace   show compact execution plan summary")
 		fmt.Println("  /exec    execute a deeph command inside this chat session")
 		fmt.Println("  /exit    end chat session")
+		fmt.Println("Tip: you can also type `deeph <command>` directly; safe commands run now and sensitive ones ask for confirmation.")
 		return false, nil
 	case cmd == "/mode":
 		current := chatUIModeFull

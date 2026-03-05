@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,6 +48,16 @@ func routeChatTurn(workspace string, meta *chatSessionMeta, entries []chatSessio
 				Replies: replies,
 			}, nil
 		}
+	}
+
+	if handled, replies, err := maybeHandleDirectDeephCommand(workspace, meta, line); handled {
+		if err != nil {
+			return chatRoute{}, err
+		}
+		return chatRoute{
+			Kind:    chatRouteHandled,
+			Replies: replies,
+		}, nil
 	}
 
 	if len(line) > 0 && line[0] == '/' {
@@ -98,6 +109,59 @@ func routeChatTurn(workspace string, meta *chatSessionMeta, entries []chatSessio
 		meta.PendingExec = nil
 	}
 	return chatRoute{Kind: chatRouteLLM}, nil
+}
+
+func maybeHandleDirectDeephCommand(workspace string, meta *chatSessionMeta, line string) (bool, []chatReply, error) {
+	trimmed := strings.TrimSpace(line)
+	lower := strings.ToLower(trimmed)
+	if trimmed == "" || (!strings.HasPrefix(lower, "deeph ") && lower != "deeph") {
+		return false, nil, nil
+	}
+
+	req, err := parseChatExecLine(trimmed, workspace)
+	if err != nil {
+		return true, []chatReply{{
+			Agent: chatReplyAgent(meta),
+			Error: err.Error(),
+		}}, nil
+	}
+	if meta != nil {
+		meta.PendingPlan = nil
+	}
+	if chatExecRequiresConfirm(req.Path) && !req.Confirmed {
+		if meta != nil {
+			copyReq := req
+			copyReq.Args = append([]string{}, req.Args...)
+			meta.PendingExec = &copyReq
+		}
+		return true, []chatReply{{
+			Agent: chatReplyAgent(meta),
+			Text:  fmt.Sprintf("Comando detectado: `%s`.\nResponda `sim` para confirmar ou `nao` para cancelar.", req.Display),
+		}}, nil
+	}
+	if meta != nil {
+		meta.PendingExec = nil
+	}
+
+	receipt, execErr := executeChatExecRequest(req)
+	recordLastCommandReceipt(meta, receipt)
+	if execErr != nil {
+		return true, []chatReply{{
+			Agent: chatReplyAgent(meta),
+			Error: execErr.Error(),
+		}}, nil
+	}
+	return true, []chatReply{{
+		Agent: chatReplyAgent(meta),
+		Text:  receipt.Summary,
+	}}, nil
+}
+
+func chatReplyAgent(meta *chatSessionMeta) string {
+	if meta == nil {
+		return ""
+	}
+	return meta.AgentSpec
 }
 
 func shouldTreatSlashLikePathInput(line string) bool {
