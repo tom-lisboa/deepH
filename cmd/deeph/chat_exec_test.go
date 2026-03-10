@@ -86,6 +86,21 @@ func TestParseChatExecLineSupportsDiagnoseShortcut(t *testing.T) {
 	}
 }
 
+func TestParseChatExecLineSupportsGWSWrapper(t *testing.T) {
+	req, err := parseChatExecLine(`/exec deeph gws drive files list --page-size 5`, "/tmp/workspace")
+	if err != nil {
+		t.Fatalf("parse exec line: %v", err)
+	}
+	if req.Path != "gws" {
+		t.Fatalf("path=%q", req.Path)
+	}
+	got := strings.Join(req.Args, "|")
+	want := "gws|drive|files|list|--page-size|5"
+	if got != want {
+		t.Fatalf("args=%q want=%q", got, want)
+	}
+}
+
 func TestParseChatExecLineRequiresKnownCommand(t *testing.T) {
 	if _, err := parseChatExecLine(`/exec deeph made up command`, "/tmp/workspace"); err == nil {
 		t.Fatalf("expected unknown command error")

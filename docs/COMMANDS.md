@@ -123,6 +123,21 @@ Tips:
   - Shows occasional local semantic hints while waiting (disable with `--coach=false` or `DEEPH_COACH=0`).
   - The coach can learn local follow-up patterns (ex.: `chat -> session show`) in the workspace.
 
+### `gws`
+- Purpose: Execute Google Workspace CLI (`gws`) through a safe `deeph` wrapper.
+- Usage:
+  - `deeph gws [--yes|--allow-mutate] [--json] [--timeout 30s] [--max-output-bytes N] [--bin gws] [--allow-any-root] <gws args...>`
+  - `deeph gws -- <raw gws args...>`
+- Examples:
+  - `deeph gws drive files list --page-size 5`
+  - `deeph gws --json gmail users.messages.list --user me --max-results 10`
+  - `deeph gws --allow-mutate drive files delete --file-id 123`
+- Notes:
+  - Runs `gws` via `exec.Command` (no shell expansion/pipes).
+  - Blocks unknown root groups by default; use `--allow-any-root` only when needed.
+  - Commands that look mutating require `--allow-mutate` (or `--yes`).
+  - Use `--` when raw `gws` flags conflict with wrapper flags like `--timeout`.
+
 ## Agents
 
 ### `agent create`

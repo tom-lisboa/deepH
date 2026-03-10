@@ -62,6 +62,8 @@ func run(args []string) error {
 		return cmdRun(args[1:])
 	case "chat":
 		return cmdChat(args[1:])
+	case "gws":
+		return cmdGWS(args[1:])
 	case "session":
 		return cmdSession(args[1:])
 	case "crew":
@@ -103,6 +105,7 @@ func printUsage() {
 	fmt.Println(`  deeph trace [--workspace DIR] [--json] [--multiverse N] "<agent|a+b|a>b|a+b>c|@crew|crew:name>" [input]`)
 	fmt.Println(`  deeph run [--workspace DIR] [--trace] [--coach=false] [--multiverse N] [--judge-agent SPEC] [--judge-max-output-chars N] "<agent|a+b|a>b|a+b>c|@crew|crew:name>" [input]`)
 	fmt.Println(`  deeph chat [--workspace DIR] [--session ID] [--history-turns N] [--history-tokens N] [--trace] [--coach=false] "<agent|a+b|a>b|a+b>c>"`)
+	fmt.Println("  deeph gws [--yes|--allow-mutate] [--json] [--timeout 30s] [--max-output-bytes N] [--bin gws] [--allow-any-root] <gws args...>")
 	fmt.Println("  deeph session list [--workspace DIR]")
 	fmt.Println("  deeph session show [--workspace DIR] [--tail N] <id>")
 	fmt.Println("  deeph crew list [--workspace DIR]")

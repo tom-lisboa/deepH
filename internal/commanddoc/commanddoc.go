@@ -319,6 +319,26 @@ var docs = []Doc{
 		},
 	},
 	{
+		Path:     "gws",
+		Category: "integrations",
+		Summary:  "Run Google Workspace CLI (`gws`) via a safe deeph wrapper (no shell, timeout and output cap)",
+		Usage: []string{
+			"deeph gws [--yes|--allow-mutate] [--json] [--timeout 30s] [--max-output-bytes N] [--bin gws] [--allow-any-root] <gws args...>",
+			"deeph gws -- <raw gws args...>",
+		},
+		Examples: []string{
+			"deeph gws drive files list --page-size 5",
+			"deeph gws --json gmail users.messages.list --user me --max-results 10",
+			"deeph gws --allow-mutate drive files delete --file-id 123",
+		},
+		Notes: []string{
+			"Executes `gws` with `exec.Command` (no shell expansion).",
+			"Unknown root groups are blocked by default; use `--allow-any-root` to bypass.",
+			"Commands that look mutating require `--allow-mutate` (or `--yes`).",
+			"Use `--` when raw gws flags conflict with wrapper flags like `--timeout`.",
+		},
+	},
+	{
 		Path:     "crew list",
 		Category: "crews",
 		Summary:  "List crew presets in crews/ (agent-spec aliases, optional multiverse universes)",
