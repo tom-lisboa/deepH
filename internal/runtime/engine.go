@@ -591,7 +591,7 @@ func (e *Engine) runTask(parent context.Context, task Task, input string, shared
 		return res
 	}
 
-	if task.Provider.Type == "deepseek" && len(task.Agent.Skills) > 0 {
+	if shouldUseDeepSeekToolLoop(task.Agent, task.Provider) {
 		toolResp, toolTrace, toolHits, toolMisses, err := e.runToolLoop(ctx, provider, task, input, bus, compiled, broker, toolBudget, stageBudget)
 		res.ToolCalls = toolTrace
 		res.ToolCacheHits += toolHits
@@ -682,6 +682,23 @@ func (e *Engine) runToolLoop(ctx context.Context, provider Provider, task Task, 
 			ToolChoice:      "auto",
 		})
 		if err != nil {
+			if round == 0 && isToolCallUnsupportedError(err) {
+				// Some models reject tools/tool_choice entirely. Fallback to plain text generation.
+				resp, plainErr := provider.Generate(ctx, LLMRequest{
+					AgentName:       task.Agent.Name,
+					Model:           coalesce(task.Agent.Model, task.Provider.Model),
+					SystemPrompt:    task.Agent.SystemPrompt,
+					Input:           compiled.Text,
+					AvailableSkills: append([]string(nil), task.Agent.Skills...),
+				})
+				if plainErr == nil {
+					if resp.Meta == nil {
+						resp.Meta = map[string]any{}
+					}
+					resp.Meta["tool_loop_fallback"] = "tools_unsupported"
+					return resp, trace, cacheHits, cacheMisses, nil
+				}
+			}
 			return LLMResponse{}, trace, cacheHits, cacheMisses, err
 		}
 
@@ -1167,7 +1184,7 @@ func (e *Engine) contextMomentForTask(agent project.AgentConfig, provider projec
 			return ContextMomentValidate
 		}
 	}
-	if provider.Type == "deepseek" && len(agent.Skills) > 0 {
+	if shouldUseDeepSeekToolLoop(agent, provider) {
 		return ContextMomentToolLoop
 	}
 	if strings.Contains(strings.ToLower(agent.Name), "review") || strings.Contains(strings.ToLower(agent.Name), "lint") {
@@ -1177,6 +1194,44 @@ func (e *Engine) contextMomentForTask(agent project.AgentConfig, provider projec
 		return ContextMomentDiscovery
 	}
 	return ContextMomentSynthesis
+}
+
+func shouldUseDeepSeekToolLoop(agent project.AgentConfig, provider project.ProviderConfig) bool {
+	if provider.Type != "deepseek" || len(agent.Skills) == 0 {
+		return false
+	}
+	if metadataBool(agent.Metadata, "disable_tool_loop") || metadataBool(agent.Metadata, "disable_tools") {
+		return false
+	}
+	mode := strings.ToLower(strings.TrimSpace(agent.Metadata["tool_loop"]))
+	switch mode {
+	case "off", "disabled", "disable", "none", "false", "no", "0":
+		return false
+	}
+	return true
+}
+
+func isToolCallUnsupportedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	raw := strings.ToLower(err.Error())
+	if raw == "" {
+		return false
+	}
+
+	containsAny := func(hay string, needles ...string) bool {
+		for _, n := range needles {
+			if strings.Contains(hay, n) {
+				return true
+			}
+		}
+		return false
+	}
+
+	hasToolRef := containsAny(raw, "tool", "tools", "tool_call", "tool_choice", "function", "function calling")
+	hasUnsupportedRef := containsAny(raw, "unsupported", "not support", "doesn't support", "does not support", "unknown parameter", "invalid parameter", "not allowed")
+	return hasToolRef && hasUnsupportedRef
 }
 
 type taskToolBudget struct {

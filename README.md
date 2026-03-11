@@ -288,7 +288,9 @@ Notes:
 
 - `deepseek-chat` is the best default to start
 - `deepseek-reasoner` can be used later for reasoning-heavy agents
-- Function/tool-calling support varies by DeepSeek model/mode and is evolving; this MVP supports plain text completions and a basic local tool-calling loop (including replay of `reasoning_content` during tool loops)
+- Function/tool-calling support varies by DeepSeek model/mode and is evolving; this runtime supports plain text completions and a local tool-calling loop (including replay of `reasoning_content` during tool loops)
+- For models/modes without function calling, set `metadata.tool_loop: "off"` in the agent to force plain-text generation (skills remain installed but are not exposed as tools in that run)
+- If a model rejects `tools`/`tool_choice`, deepH now retries automatically in plain-text mode
 
 ## DeepSeek Tool Calling (MVP)
 
@@ -365,6 +367,8 @@ metadata:
   context_max_facts: "12"
   max_tool_rounds: "4"
   max_repeated_tool_calls: "2"
+  # disable DeepSeek tool loop for models/modes without function calling
+  # tool_loop: "off"
   # optional phase override (otherwise inferred by runtime):
   # context_moment: "tool_loop"
 ```

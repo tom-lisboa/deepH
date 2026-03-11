@@ -325,7 +325,7 @@ func cmdTrace(args []string) error {
 				}
 			}
 		}
-		if t.ProviderType == "deepseek" && len(t.Skills) > 0 {
+		if t.ProviderType == "deepseek" && len(t.Skills) > 0 && t.ContextMoment == "tool_loop" {
 			fmt.Println("           tool_loop=enabled (deepseek chat completions -> skills)")
 		}
 		if t.AgentFile != "" {
