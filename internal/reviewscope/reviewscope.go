@@ -84,6 +84,7 @@ type goFileRefs struct {
 }
 
 var hunkPattern = regexp.MustCompile(`^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@`)
+var ErrNoReviewChanges = errors.New("review requires local git changes or untracked files")
 
 func DefaultConfig() Config {
 	return Config{
@@ -145,7 +146,7 @@ func BuildScope(workspace, baseRef string, cfg Config) (Scope, error) {
 		}
 	}
 	if len(scope.DiffFiles) == 0 {
-		return Scope{}, errors.New("review requires local git changes or untracked files")
+		return Scope{}, ErrNoReviewChanges
 	}
 	if err := expandWorkingSet(&scope, cfg, goIndex); err != nil {
 		return Scope{}, err
@@ -287,6 +288,59 @@ func ParseUnifiedDiff(diffText string) []ChangedFile {
 
 func gitRelativeDiff(workspace, baseRef string) (diffText string, effectiveBase string, err error) {
 	baseRef = strings.TrimSpace(baseRef)
+	if baseRef == "" || strings.EqualFold(baseRef, "auto") {
+		return gitRelativeDiffAuto(workspace)
+	}
+	return gitRelativeDiffSingle(workspace, baseRef)
+}
+
+func gitRelativeDiffAuto(workspace string) (diffText string, effectiveBase string, err error) {
+	candidates := []string{"HEAD", "HEAD~1"}
+	if mergeBase, mergeErr := gitMergeBaseWithUpstream(workspace); mergeErr == nil && strings.TrimSpace(mergeBase) != "" {
+		candidates = append(candidates, strings.TrimSpace(mergeBase))
+	}
+	seen := make(map[string]struct{}, len(candidates))
+	var firstOut string
+	var firstBase string
+	var firstErr error
+	for _, candidate := range candidates {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			continue
+		}
+		if _, ok := seen[candidate]; ok {
+			continue
+		}
+		seen[candidate] = struct{}{}
+		out, effective, runErr := gitRelativeDiffSingle(workspace, candidate)
+		if runErr != nil {
+			if firstErr == nil {
+				firstErr = runErr
+			}
+			continue
+		}
+		if firstBase == "" {
+			firstBase = effective
+			firstOut = out
+		}
+		if strings.TrimSpace(out) != "" {
+			return out, effective, nil
+		}
+	}
+	if patch, patchErr := gitShowLastCommitPatch(workspace); patchErr == nil && strings.TrimSpace(patch) != "" {
+		return patch, "last-commit", nil
+	}
+	if firstBase != "" {
+		return firstOut, firstBase, nil
+	}
+	if firstErr != nil {
+		return "", "", firstErr
+	}
+	return "", "HEAD", nil
+}
+
+func gitRelativeDiffSingle(workspace, baseRef string) (diffText string, effectiveBase string, err error) {
+	baseRef = strings.TrimSpace(baseRef)
 	if baseRef == "" {
 		baseRef = "HEAD"
 	}
@@ -307,6 +361,18 @@ func gitRelativeDiff(workspace, baseRef string) (diffText string, effectiveBase 
 		return "", "", runErr
 	}
 	return fallback, "working-tree", nil
+}
+
+func gitMergeBaseWithUpstream(workspace string) (string, error) {
+	out, err := runGitCapture(workspace, "merge-base", "HEAD", "@{upstream}")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(out), nil
+}
+
+func gitShowLastCommitPatch(workspace string) (string, error) {
+	return runGitCapture(workspace, "show", "--no-ext-diff", "--unified=0", "--relative", "--format=", "HEAD", "--")
 }
 
 func gitUntrackedFiles(workspace string) ([]string, error) {

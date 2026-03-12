@@ -2,6 +2,7 @@ package reviewscope
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -286,6 +287,42 @@ func TestExpandWorkingSetUsesReverseSymbolReferences(t *testing.T) {
 	}
 }
 
+func TestBuildScopeAutoFallsBackToLastCommitWhenTreeIsClean(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	ws := t.TempDir()
+	writeReviewFile(t, filepath.Join(ws, "go.mod"), "module example.com/app\n\ngo 1.24.0\n")
+	writeReviewFile(t, filepath.Join(ws, "main.go"), "package main\n\nfunc main() {}\n")
+
+	runReviewGit(t, ws, "init")
+	runReviewGit(t, ws, "config", "user.email", "tester@example.com")
+	runReviewGit(t, ws, "config", "user.name", "Tester")
+	runReviewGit(t, ws, "add", ".")
+	runReviewGit(t, ws, "commit", "-m", "initial commit")
+
+	scope, err := BuildScope(ws, "auto", DefaultConfig())
+	if err != nil {
+		t.Fatalf("build scope: %v", err)
+	}
+	if scope.BaseRef != "last-commit" {
+		t.Fatalf("base_ref=%q", scope.BaseRef)
+	}
+	if len(scope.DiffFiles) == 0 {
+		t.Fatalf("expected diff files from last commit fallback")
+	}
+	foundMain := false
+	for _, file := range scope.DiffFiles {
+		if file.Path == "main.go" {
+			foundMain = true
+			break
+		}
+	}
+	if !foundMain {
+		t.Fatalf("expected main.go in diff files, got=%+v", scope.DiffFiles)
+	}
+}
+
 func writeReviewFile(t *testing.T, path, body string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -293,5 +330,14 @@ func writeReviewFile(t *testing.T, path, body string) {
 	}
 	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
+	}
+}
+
+func runReviewGit(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %s: %v (%s)", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
 	}
 }

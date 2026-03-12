@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -19,21 +22,43 @@ type reviewJSONPayload struct {
 	Spec         string            `json:"spec"`
 	PromptTokens int               `json:"prompt_tokens_estimate"`
 	Scope        reviewscope.Scope `json:"scope"`
+	Preflight    reviewPreflight   `json:"preflight"`
 	Input        string            `json:"input"`
+}
+
+type reviewPreflight struct {
+	Enabled      bool                   `json:"enabled"`
+	Ran          bool                   `json:"ran"`
+	Skipped      string                 `json:"skipped,omitempty"`
+	CheckTimeout string                 `json:"check_timeout,omitempty"`
+	Results      []reviewPreflightCheck `json:"results,omitempty"`
+}
+
+type reviewPreflightCheck struct {
+	Name       string `json:"name"`
+	Status     string `json:"status"`
+	DurationMS int64  `json:"duration_ms"`
+	Summary    string `json:"summary,omitempty"`
 }
 
 func cmdReview(args []string) error {
 	fs := flag.NewFlagSet("review", flag.ContinueOnError)
 	workspace := fs.String("workspace", ".", "workspace path")
 	spec := fs.String("spec", "", "agent spec or crew used for the review")
-	baseRef := fs.String("base", "HEAD", "git base ref used for diff-aware review")
+	baseRef := fs.String("base", "auto", "git base ref used for diff-aware review (`auto` tries HEAD, HEAD~1 and last commit)")
 	showTrace := fs.Bool("trace", false, "print review scope summary before running")
 	showCoach := fs.Bool("coach", true, "show occasional semantic tips while waiting")
+	checks := fs.Bool("checks", true, "run deterministic Go checks (`go test ./...` and `go vet ./...`) before review")
+	checkTimeout := fs.String("check-timeout", "45s", "timeout per deterministic check when --checks is true")
 	jsonOut := fs.Bool("json", false, "print diff-aware review payload as JSON instead of running")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	focus := strings.TrimSpace(strings.Join(fs.Args(), " "))
+	parsedCheckTimeout, err := parseReviewCheckTimeout(*checkTimeout)
+	if err != nil {
+		return err
+	}
 
 	p, abs, verr, err := loadAndValidate(*workspace)
 	if err != nil {
@@ -49,7 +74,9 @@ func cmdReview(args []string) error {
 	if err != nil {
 		return err
 	}
+	preflight, preflightBlock := buildReviewPreflight(abs, *checks, parsedCheckTimeout)
 	input := reviewscope.BuildInput(scope, focus, cfg)
+	input = appendReviewPreflight(input, preflightBlock, cfg.MaxInputChars)
 	promptTokens := reviewscope.EstimateTokens(input)
 
 	baseSpec := defaultReviewAgentSpec(p)
@@ -62,12 +89,14 @@ func cmdReview(args []string) error {
 			Spec:         displaySpec,
 			PromptTokens: promptTokens,
 			Scope:        scope,
+			Preflight:    preflight,
 			Input:        input,
 		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		return enc.Encode(payload)
 	}
+	printReviewPreflight(preflight)
 
 	resolvedSpec, crew, err := resolveAgentSpecOrCrew(abs, selectedSpecArg)
 	if err != nil {
@@ -145,6 +174,202 @@ func cmdReview(args []string) error {
 	}
 	saveStudioRecent(abs, displaySpec, "")
 	return nil
+}
+
+func parseReviewCheckTimeout(raw string) (time.Duration, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 45 * time.Second, nil
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		return 0, fmt.Errorf("invalid --check-timeout %q: %w", raw, err)
+	}
+	if d <= 0 {
+		return 0, errors.New("--check-timeout must be greater than zero")
+	}
+	return d, nil
+}
+
+func buildReviewPreflight(workspace string, enabled bool, timeout time.Duration) (reviewPreflight, string) {
+	report := reviewPreflight{
+		Enabled:      enabled,
+		CheckTimeout: timeout.String(),
+	}
+	if !enabled {
+		report.Skipped = "disabled by flag"
+		return report, ""
+	}
+	if !workspaceHasGoModule(workspace) {
+		report.Skipped = "workspace has no go.mod"
+		return report, formatReviewPreflightBlock(report)
+	}
+	report.Ran = true
+	specs := []struct {
+		name string
+		args []string
+	}{
+		{name: "go_test", args: []string{"test", "./..."}},
+		{name: "go_vet", args: []string{"vet", "./..."}},
+	}
+	for _, spec := range specs {
+		report.Results = append(report.Results, runReviewPreflightCheck(workspace, timeout, spec.name, spec.args...))
+	}
+	return report, formatReviewPreflightBlock(report)
+}
+
+func workspaceHasGoModule(workspace string) bool {
+	info, err := os.Stat(filepath.Join(workspace, "go.mod"))
+	return err == nil && !info.IsDir()
+}
+
+func runReviewPreflightCheck(workspace string, timeout time.Duration, name string, args ...string) reviewPreflightCheck {
+	start := time.Now()
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "go", args...)
+	cmd.Dir = workspace
+	out, err := cmd.CombinedOutput()
+	duration := time.Since(start).Milliseconds()
+	summary := summarizeReviewCheckOutput(string(out))
+	result := reviewPreflightCheck{
+		Name:       name,
+		DurationMS: duration,
+	}
+	switch {
+	case errors.Is(ctx.Err(), context.DeadlineExceeded):
+		result.Status = "timeout"
+		if summary == "" {
+			summary = "command timed out"
+		}
+	case err == nil:
+		result.Status = "pass"
+	default:
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			result.Status = "fail"
+		} else {
+			result.Status = "error"
+		}
+		if summary == "" {
+			summary = clipLine(err.Error(), 220)
+		}
+	}
+	result.Summary = summary
+	return result
+}
+
+func summarizeReviewCheckOutput(raw string) string {
+	raw = strings.ReplaceAll(raw, "\r\n", "\n")
+	raw = strings.ReplaceAll(raw, "\r", "\n")
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	lines := strings.Split(raw, "\n")
+	picked := make([]string, 0, 8)
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		picked = append(picked, clipLine(line, 160))
+		if len(picked) >= 8 {
+			break
+		}
+	}
+	if len(picked) == 0 {
+		return ""
+	}
+	return clipLine(strings.Join(picked, " | "), 340)
+}
+
+func formatReviewPreflightBlock(report reviewPreflight) string {
+	if !report.Enabled {
+		return ""
+	}
+	lines := []string{"[deterministic_checks]"}
+	if !report.Ran {
+		lines = append(lines, "status: skipped")
+		if strings.TrimSpace(report.Skipped) != "" {
+			lines = append(lines, "reason: "+clipLine(report.Skipped, 180))
+		}
+		lines = append(lines, "instruction: checks were skipped. keep residual risks explicit.")
+		return strings.Join(lines, "\n")
+	}
+	lines = append(lines, "status: ran")
+	if strings.TrimSpace(report.CheckTimeout) != "" {
+		lines = append(lines, "timeout_per_check: "+report.CheckTimeout)
+	}
+	overall := "pass"
+	for _, check := range report.Results {
+		if check.Status != "pass" {
+			overall = "attention"
+			break
+		}
+	}
+	lines = append(lines, "overall: "+overall)
+	lines = append(lines, "checks:")
+	for _, check := range report.Results {
+		lines = append(lines, fmt.Sprintf("- name: %s status: %s duration_ms: %d", check.Name, check.Status, check.DurationMS))
+		if strings.TrimSpace(check.Summary) != "" {
+			lines = append(lines, "  summary: "+clipLine(check.Summary, 220))
+		}
+	}
+	lines = append(lines, "instruction: treat fail/timeout checks as strong regression evidence and still inspect code-level risks.")
+	return strings.Join(lines, "\n")
+}
+
+func appendReviewPreflight(input string, block string, maxChars int) string {
+	input = strings.TrimSpace(input)
+	block = strings.TrimSpace(block)
+	if block == "" {
+		return input
+	}
+	joined := strings.TrimSpace(input + "\n\n" + block)
+	if maxChars <= 0 || len(joined) <= maxChars {
+		return joined
+	}
+	remaining := maxChars - len(input) - 2
+	if remaining <= 16 {
+		return input
+	}
+	block = trimReviewBlock(block, remaining)
+	return strings.TrimSpace(input + "\n\n" + block)
+}
+
+func trimReviewBlock(s string, maxChars int) string {
+	s = strings.TrimSpace(s)
+	if maxChars <= 0 || len(s) <= maxChars {
+		return s
+	}
+	if maxChars <= 3 {
+		return s[:maxChars]
+	}
+	return strings.TrimSpace(s[:maxChars-3]) + "..."
+}
+
+func printReviewPreflight(report reviewPreflight) {
+	if !report.Enabled {
+		return
+	}
+	if !report.Ran {
+		if strings.TrimSpace(report.Skipped) == "" {
+			fmt.Println("Deterministic checks: skipped")
+			return
+		}
+		fmt.Printf("Deterministic checks: skipped (%s)\n", report.Skipped)
+		return
+	}
+	parts := make([]string, 0, len(report.Results))
+	overall := "pass"
+	for _, check := range report.Results {
+		parts = append(parts, check.Name+"="+check.Status)
+		if check.Status != "pass" {
+			overall = "attention"
+		}
+	}
+	fmt.Printf("Deterministic checks: %s [%s]\n", overall, strings.Join(parts, ", "))
 }
 
 func maybeRunReviewMultiverse(ctx context.Context, workspace string, p *project.Project, input string, selectedSpecArg string, displaySpec string, baseSpec string, synthSpec string, crew *crewConfig, useBuiltinFlow bool, showTrace bool, showCoach bool, scope reviewscope.Scope, promptTokens int) ([]multiverseRunBranch, *multiverseOrchestrationPlan, runtime.ExecutionPlan, []runtime.Task, error) {

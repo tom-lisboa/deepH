@@ -202,18 +202,22 @@ var docs = []Doc{
 		Category: "execution",
 		Summary:  "Review the current git diff with a compact, Go-aware working set",
 		Usage: []string{
-			`deeph review [--workspace DIR] [--spec SPEC] [--base REF] [--trace] [--coach=false] [--json] [focus]`,
+			`deeph review [--workspace DIR] [--spec SPEC] [--base REF|auto] [--trace] [--coach=false] [--checks=true|false] [--check-timeout 45s] [--json] [focus]`,
 		},
 		Examples: []string{
 			"deeph review",
+			"deeph review --base auto",
 			`deeph review --trace "focus on regressions and missing tests"`,
 			"deeph review --spec @reviewflow",
 			"deeph review --spec reviewer",
+			"deeph review --checks=false",
 			"deeph review --json",
 		},
 		Notes: []string{
 			"Builds a compact review brief from the current git diff plus a Go-aware working set (same package, tests, local imports, reverse imports).",
 			"`--json` prints the generated scope and review input payload instead of running the agent.",
+			"`--base auto` (default) tries `HEAD`, `HEAD~1`, upstream merge-base and last-commit patch, reducing \"no local diff\" failures.",
+			"`--checks` runs deterministic pre-review checks (`go test ./...` and `go vet ./...`) and injects a compact summary into the review context.",
 			"When `crews/reviewflow.yaml` exists, defaults to `@reviewflow`; otherwise falls back to a builtin multiverse review flow rooted at `reviewer` or `guide`.",
 			"Passing `--spec SPEC` keeps the review on that explicit agent or crew instead of auto-selecting the builtin flow.",
 		},

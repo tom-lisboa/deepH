@@ -149,6 +149,7 @@ Notes:
 
 - `quickstart` creates `deeph.yaml`, starter agents, starter skills, review crew, and validates the workspace.
 - In a fresh guide-based workspace, `quickstart` installs `coder`, `diagnoser`, `reviewer`, `review_synth`, `reviewflow`, `file_read_range`, and `file_write_safe`.
+- `deeph review` now defaults to `--base auto` (tries `HEAD`, `HEAD~1`, upstream merge-base and last-commit patch) and runs deterministic checks (`go test ./...`, `go vet ./...`) before synthesis; disable checks with `--checks=false`.
 - If your project was initialized with an older `deepH`, rerun `deeph quickstart --workspace .` to install the new editing/review pack. `deeph update` updates the binary, not the agents already stored inside each project.
 - The starter `guide` is tuned to answer with exact `deeph` commands and can consult the built-in command dictionary when needed.
 - Use a real DeepSeek key; placeholders like `sk-CHAVE_NOVA_REAL` will return 401.

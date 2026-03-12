@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"deeph/internal/project"
 )
@@ -100,5 +101,68 @@ func TestReviewDisplaySpecUsesBuiltinMarkerOnlyWhenNeeded(t *testing.T) {
 	}
 	if got := reviewDisplaySpec("reviewer", "reviewer", "review_synth", true); got != "builtin:reviewflow(reviewer>review_synth)" {
 		t.Fatalf("builtin display spec=%q", got)
+	}
+}
+
+func TestParseReviewCheckTimeout(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		got, err := parseReviewCheckTimeout("")
+		if err != nil {
+			t.Fatalf("parse timeout: %v", err)
+		}
+		if got != 45*time.Second {
+			t.Fatalf("timeout=%s", got)
+		}
+	})
+	t.Run("custom", func(t *testing.T) {
+		got, err := parseReviewCheckTimeout("90s")
+		if err != nil {
+			t.Fatalf("parse timeout: %v", err)
+		}
+		if got != 90*time.Second {
+			t.Fatalf("timeout=%s", got)
+		}
+	})
+	t.Run("invalid", func(t *testing.T) {
+		if _, err := parseReviewCheckTimeout("abc"); err == nil {
+			t.Fatal("expected parse error")
+		}
+	})
+}
+
+func TestAppendReviewPreflightRespectsMaxChars(t *testing.T) {
+	base := strings.Repeat("A", 40)
+	block := "[deterministic_checks]\nstatus: ran\noverall: pass"
+	got := appendReviewPreflight(base, block, 32)
+	if got != base {
+		t.Fatalf("expected unchanged base, got=%q", got)
+	}
+
+	got = appendReviewPreflight(base, block, 120)
+	if !strings.Contains(got, "[deterministic_checks]") {
+		t.Fatalf("expected block to be appended, got=%q", got)
+	}
+}
+
+func TestFormatReviewPreflightBlock(t *testing.T) {
+	report := reviewPreflight{
+		Enabled:      true,
+		Ran:          true,
+		CheckTimeout: "45s",
+		Results: []reviewPreflightCheck{
+			{Name: "go_test", Status: "pass", DurationMS: 1200},
+			{Name: "go_vet", Status: "fail", DurationMS: 800, Summary: "found issue"},
+		},
+	}
+	block := formatReviewPreflightBlock(report)
+	for _, want := range []string{
+		"[deterministic_checks]",
+		"status: ran",
+		"overall: attention",
+		"name: go_vet status: fail",
+	} {
+		if !strings.Contains(block, want) {
+			t.Fatalf("missing %q in block:\n%s", want, block)
+		}
 	}
 }
