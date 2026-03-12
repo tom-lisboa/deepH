@@ -79,33 +79,78 @@ Tips:
 ### `trace`
 - Purpose: Show the execution plan (stages, channels, handoffs) before running.
 - Usage:
-  - `deeph trace [--workspace DIR] [--json] [--multiverse N] "<agent|a+b|a>b|a+b>c|@crew|crew:name>" [input]`
+  - `deeph trace [--workspace DIR] [--json] [--multiverse N] [--daemon=true|false] [--daemon-target HOST:PORT] "<agent|a+b|a>b|a+b>c|@crew|crew:name>" [input]`
 - Examples:
   - `deeph trace guide "teste"`
   - `deeph trace "planner+reader>coder>reviewer" "implemente X"`
   - `deeph trace --json "planner+coder>reviewer" "debug"`
   - `deeph trace --multiverse 0 @reviewpack "task"`
+  - `deeph trace --daemon @reviewpack "task"`
+  - `deeph trace --daemon=false guide "task"`
 - Notes:
   - `--multiverse N` traces N universes; with `@crew`, `--multiverse 0` means all crew universes.
   - Crew universes can declare `depends_on` to create multiverse channels (`u1.result -> u2.context`) shown in the trace.
+  - `--daemon` defaults to `true` and forwards the request to a local `deephd` gRPC daemon.
+  - If daemon is unavailable, deepH tries to start it and falls back to local execution when needed.
+  - Use `--daemon=false` to force local in-process execution.
 
 ### `run`
 - Purpose: Execute one or more agents with `dag_channels` orchestration.
 - Usage:
-  - `deeph run [--workspace DIR] [--trace] [--coach=false] [--multiverse N] [--judge-agent SPEC] [--judge-max-output-chars N] "<agent|a+b|a>b|a+b>c|@crew|crew:name>" [input]`
+  - `deeph run [--workspace DIR] [--trace] [--coach=false] [--multiverse N] [--judge-agent SPEC] [--judge-max-output-chars N] [--daemon=true|false] [--daemon-target HOST:PORT] "<agent|a+b|a>b|a+b>c|@crew|crew:name>" [input]`
 - Examples:
   - `deeph run guide "teste"`
   - `deeph run "planner+reader>coder>reviewer" "crie feature X"`
   - `deeph run --trace "a+b>c" "task"`
   - `deeph run --multiverse 0 @reviewpack "task"`
   - `deeph run --multiverse 0 --judge-agent guide @reviewpack "task"`
+  - `deeph run --daemon guide "task"`
+  - `deeph run --daemon=false guide "task"`
 - Notes:
   - `--multiverse` runs branch universes and prints a sink-output fingerprint consensus.
   - Crew universes with `depends_on` run with a multiverse DAG/channels scheduler and can contribute compact handoffs to downstream universes.
   - `--judge-agent` runs a follow-up comparison agent over branch summaries (reconcile step).
   - Judge output is parsed when possible (JSON or labeled sections) to show `winner`, `rationale`, `risks` and `follow_up` clearly.
+  - `--daemon` defaults to `true` and forwards the run to a local `deephd` gRPC daemon.
+  - If daemon is unavailable, deepH tries to start it and falls back to local execution when needed.
+  - Use `--daemon=false` to force local in-process execution.
   - Shows occasional local semantic hints while waiting (disable with `--coach=false` or `DEEPH_COACH=0`).
   - The coach learns local command transitions (ex.: `run -> trace`) to suggest likely next steps without extra LLM tokens.
+
+### `daemon serve`
+- Purpose: Run the local `deephd` gRPC daemon in foreground.
+- Usage:
+  - `deeph daemon serve [--target HOST:PORT]`
+- Examples:
+  - `deeph daemon serve`
+  - `deeph daemon serve --target 127.0.0.1:7788`
+- Notes:
+  - Serves Ping/Trace/Run/Shutdown gRPC methods over HTTP/2 with protobuf structs.
+  - Use `deeph run --daemon ...` or `deeph trace --daemon ...` to send requests to this process.
+
+### `daemon start`
+- Purpose: Start `deephd` in background and wait until reachable.
+- Usage:
+  - `deeph daemon start [--target HOST:PORT]`
+- Examples:
+  - `deeph daemon start`
+  - `deeph daemon start --target 127.0.0.1:7788`
+- Notes:
+  - Starts a detached `deeph daemon serve` process and writes logs to a temp file.
+
+### `daemon status`
+- Purpose: Check whether `deephd` is reachable.
+- Usage:
+  - `deeph daemon status [--target HOST:PORT]`
+- Examples:
+  - `deeph daemon status`
+
+### `daemon stop`
+- Purpose: Request graceful shutdown of `deephd`.
+- Usage:
+  - `deeph daemon stop [--target HOST:PORT]`
+- Examples:
+  - `deeph daemon stop`
 
 ### `chat`
 - Purpose: Start a fluid terminal chat session with one agent or multi-agent spec.

@@ -13,6 +13,7 @@ import (
 var validProviderTypes = map[string]struct{}{
 	"mock":      {},
 	"http":      {},
+	"grpc":      {},
 	"openai":    {},
 	"deepseek":  {},
 	"anthropic": {},
@@ -58,6 +59,12 @@ func Validate(p *Project) *ValidationError {
 		}
 		if pc.Type == "http" && strings.TrimSpace(pc.BaseURL) == "" {
 			issues = append(issues, Issue{Level: IssueError, Path: path, Field: "base_url", Message: "is required for http provider"})
+		}
+		if pc.Type == "grpc" && strings.TrimSpace(pc.GRPCTarget) == "" && strings.TrimSpace(pc.BaseURL) == "" {
+			issues = append(issues, Issue{Level: IssueError, Path: path, Field: "grpc_target", Message: "is required for grpc provider (or set base_url as fallback target)"})
+		}
+		if pc.Type == "grpc" && strings.TrimSpace(pc.GRPCMethod) == "" {
+			issues = append(issues, Issue{Level: IssueWarning, Path: path, Field: "grpc_method", Message: "empty value defaults to /deeph.runtime.v1.ProviderService/Generate at runtime"})
 		}
 		if pc.Type == "deepseek" && strings.TrimSpace(pc.APIKeyEnv) == "" {
 			issues = append(issues, Issue{Level: IssueWarning, Path: path, Field: "api_key_env", Message: "empty value defaults to DEEPSEEK_API_KEY at runtime"})

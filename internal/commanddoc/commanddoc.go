@@ -259,18 +259,23 @@ var docs = []Doc{
 		Category: "execution",
 		Summary:  "Show execution plan, stages, channels and handoffs before running",
 		Usage: []string{
-			`deeph trace [--workspace DIR] [--json] [--multiverse N] "<agent|a+b|a>b|a+b>c|@crew|crew:name>" [input]`,
+			`deeph trace [--workspace DIR] [--json] [--multiverse N] [--daemon=true|false] [--daemon-target HOST:PORT] "<agent|a+b|a>b|a+b>c|@crew|crew:name>" [input]`,
 		},
 		Examples: []string{
 			`deeph trace guide "teste"`,
 			`deeph trace "planner+reader>coder>reviewer" "implemente X"`,
 			`deeph trace --json "planner+coder>reviewer" "debug"`,
 			`deeph trace --multiverse 0 @reviewpack "task"`,
+			`deeph trace --daemon @reviewpack "task"`,
+			`deeph trace --daemon=false guide "task"`,
 		},
 		Notes: []string{
 			"`--json` is useful for automation, UI integration and logs.",
 			"`--multiverse N` traces N universes (or all crew universes with `--multiverse 0`).",
 			"Crew universes can declare `depends_on` to create multiverse channels (`u1.result -> u2.context`) shown in the trace.",
+			"`--daemon` defaults to `true` and forwards the request to a local `deephd` gRPC daemon.",
+			"If daemon is unavailable, deepH tries to start it and falls back to local execution when needed.",
+			"Use `--daemon=false` to force local in-process execution.",
 		},
 	},
 	{
@@ -278,7 +283,7 @@ var docs = []Doc{
 		Category: "execution",
 		Summary:  "Run one or more agents with DAG/channels orchestration",
 		Usage: []string{
-			`deeph run [--workspace DIR] [--trace] [--coach=false] [--multiverse N] [--judge-agent SPEC] [--judge-max-output-chars N] "<agent|a+b|a>b|a+b>c|@crew|crew:name>" [input]`,
+			`deeph run [--workspace DIR] [--trace] [--coach=false] [--multiverse N] [--judge-agent SPEC] [--judge-max-output-chars N] [--daemon=true|false] [--daemon-target HOST:PORT] "<agent|a+b|a>b|a+b>c|@crew|crew:name>" [input]`,
 		},
 		Examples: []string{
 			`deeph run guide "teste"`,
@@ -286,6 +291,8 @@ var docs = []Doc{
 			`deeph run --trace "a+b>c" "task"`,
 			`deeph run --multiverse 0 @reviewpack "task"`,
 			`deeph run --multiverse 0 --judge-agent guide @reviewpack "task"`,
+			`deeph run --daemon guide "task"`,
+			`deeph run --daemon=false guide "task"`,
 		},
 		Notes: []string{
 			"Prints context, channel, handoff and tool budget metrics per agent.",
@@ -293,8 +300,64 @@ var docs = []Doc{
 			"Crew universes with `depends_on` run with a multiverse DAG/channels scheduler and can contribute compact handoffs to downstream universes.",
 			"`--judge-agent` runs a follow-up comparison agent over multiverse branch summaries (reconcile/judge step).",
 			"Judge output is parsed when possible (JSON or labeled sections) to show `winner`, `rationale`, `risks` and `follow_up` clearly.",
+			"`--daemon` defaults to `true` and forwards the run to a local `deephd` gRPC daemon.",
+			"If daemon is unavailable, deepH tries to start it and falls back to local execution when needed.",
+			"Use `--daemon=false` to force local in-process execution.",
 			"Shows occasional local semantic hints while waiting (disable with `--coach=false` or `DEEPH_COACH=0`).",
 			"Coach also learns local command transitions (ex.: run -> trace) to suggest likely next steps without using LLM tokens.",
+		},
+	},
+	{
+		Path:     "daemon serve",
+		Category: "execution",
+		Summary:  "Run the local `deephd` gRPC daemon in foreground",
+		Usage: []string{
+			"deeph daemon serve [--target HOST:PORT]",
+		},
+		Examples: []string{
+			"deeph daemon serve",
+			"deeph daemon serve --target 127.0.0.1:7788",
+		},
+		Notes: []string{
+			"Serves Ping/Trace/Run/Shutdown gRPC methods over HTTP/2 with protobuf structs.",
+			"Use `deeph run --daemon ...` or `deeph trace --daemon ...` to send requests to this process.",
+		},
+	},
+	{
+		Path:     "daemon start",
+		Category: "execution",
+		Summary:  "Start `deephd` in background and wait until reachable",
+		Usage: []string{
+			"deeph daemon start [--target HOST:PORT]",
+		},
+		Examples: []string{
+			"deeph daemon start",
+			"deeph daemon start --target 127.0.0.1:7788",
+		},
+		Notes: []string{
+			"Starts a detached `deeph daemon serve` process and writes logs to a temp file.",
+		},
+	},
+	{
+		Path:     "daemon status",
+		Category: "execution",
+		Summary:  "Check whether `deephd` is reachable",
+		Usage: []string{
+			"deeph daemon status [--target HOST:PORT]",
+		},
+		Examples: []string{
+			"deeph daemon status",
+		},
+	},
+	{
+		Path:     "daemon stop",
+		Category: "execution",
+		Summary:  "Request graceful shutdown of `deephd`",
+		Usage: []string{
+			"deeph daemon stop [--target HOST:PORT]",
+		},
+		Examples: []string{
+			"deeph daemon stop",
 		},
 	},
 	{

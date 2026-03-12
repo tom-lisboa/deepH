@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package deeph.daemon.v1;
+
+option go_package = "deeph/proto/deeph/daemon/v1;daemonv1";
+
+import "google/protobuf/struct.proto";
+
+// Phase 1 daemon scaffold:
+// payloads are generic Struct maps to keep backwards-compatible evolution
+// while the CLI and daemon protocol stabilizes.
+service DaemonService {
+  rpc Ping(google.protobuf.Struct) returns (google.protobuf.Struct);
+  rpc Run(google.protobuf.Struct) returns (google.protobuf.Struct);
+  rpc Trace(google.protobuf.Struct) returns (google.protobuf.Struct);
+  rpc Shutdown(google.protobuf.Struct) returns (google.protobuf.Struct);
+}
