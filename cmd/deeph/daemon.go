@@ -11,12 +11,15 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"deeph/internal/runtime"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -29,9 +32,31 @@ const (
 	daemonMethodTrace   = "/" + daemonServiceName + "/Trace"
 	daemonMethodStop    = "/" + daemonServiceName + "/Shutdown"
 	daemonTargetEnvVar  = "DEEPH_DAEMON_TARGET"
+	daemonDebugEnvVar   = "DEEPH_DAEMON_DEBUG"
 	defaultDaemonTarget = "127.0.0.1:7788"
 	defaultDaemonDialTO = 1500 * time.Millisecond
 )
+
+var deephDaemonConnCache = struct {
+	mu    sync.Mutex
+	conns map[string]*grpc.ClientConn
+}{
+	conns: map[string]*grpc.ClientConn{},
+}
+
+var deephDaemonConnStats = struct {
+	hits   atomic.Uint64
+	misses atomic.Uint64
+	dials  atomic.Uint64
+	drops  atomic.Uint64
+}{}
+
+type daemonConnStatsSnapshot struct {
+	Hits   uint64
+	Misses uint64
+	Dials  uint64
+	Drops  uint64
+}
 
 type daemonRunRequest struct {
 	Workspace           string `json:"workspace"`
@@ -358,20 +383,101 @@ func deephDaemonInvoke(ctx context.Context, target, method string, req any, out 
 		cancelDial = cancel
 	}
 	defer cancelDial()
-	conn, err := grpc.DialContext(dialCtx, target, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+	conn, err := deephDaemonGetConn(dialCtx, target)
 	if err != nil {
 		return fmt.Errorf("connect deephd %s: %w", target, err)
 	}
-	defer conn.Close()
 
 	var resp structpb.Struct
 	if err := conn.Invoke(ctx, method, in, &resp); err != nil {
+		if isDaemonUnavailableError(err) {
+			deephDaemonDropConn(target, conn)
+		}
 		return err
 	}
 	if out == nil {
 		return nil
 	}
 	return deephStructToAny(&resp, out)
+}
+
+func deephDaemonGetConn(ctx context.Context, target string) (*grpc.ClientConn, error) {
+	miss := true
+	deephDaemonConnCache.mu.Lock()
+	if conn := deephDaemonConnCache.conns[target]; conn != nil {
+		if conn.GetState() != connectivity.Shutdown {
+			miss = false
+			deephDaemonConnStats.hits.Add(1)
+			deephDaemonConnCache.mu.Unlock()
+			return conn, nil
+		}
+		delete(deephDaemonConnCache.conns, target)
+	}
+	deephDaemonConnCache.mu.Unlock()
+	if miss {
+		deephDaemonConnStats.misses.Add(1)
+	}
+
+	conn, err := grpc.DialContext(ctx, target, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+	if err != nil {
+		return nil, err
+	}
+	deephDaemonConnStats.dials.Add(1)
+
+	deephDaemonConnCache.mu.Lock()
+	if existing := deephDaemonConnCache.conns[target]; existing != nil && existing.GetState() != connectivity.Shutdown {
+		deephDaemonConnStats.hits.Add(1)
+		deephDaemonConnCache.mu.Unlock()
+		_ = conn.Close()
+		return existing, nil
+	}
+	deephDaemonConnCache.conns[target] = conn
+	deephDaemonConnCache.mu.Unlock()
+	return conn, nil
+}
+
+func deephDaemonDropConn(target string, conn *grpc.ClientConn) {
+	if conn == nil {
+		return
+	}
+	dropped := false
+	deephDaemonConnCache.mu.Lock()
+	if existing := deephDaemonConnCache.conns[target]; existing == conn {
+		delete(deephDaemonConnCache.conns, target)
+		dropped = true
+	}
+	deephDaemonConnCache.mu.Unlock()
+	if dropped {
+		deephDaemonConnStats.drops.Add(1)
+	}
+	_ = conn.Close()
+}
+
+func daemonConnStatsSnapshotValue() daemonConnStatsSnapshot {
+	return daemonConnStatsSnapshot{
+		Hits:   deephDaemonConnStats.hits.Load(),
+		Misses: deephDaemonConnStats.misses.Load(),
+		Dials:  deephDaemonConnStats.dials.Load(),
+		Drops:  deephDaemonConnStats.drops.Load(),
+	}
+}
+
+func daemonConnDebugEnabled() bool {
+	raw := strings.ToLower(strings.TrimSpace(os.Getenv(daemonDebugEnvVar)))
+	switch raw {
+	case "1", "true", "yes", "on", "debug":
+		return true
+	default:
+		return false
+	}
+}
+
+func maybePrintDaemonConnStats(target string) {
+	if !daemonConnDebugEnabled() {
+		return
+	}
+	s := daemonConnStatsSnapshotValue()
+	fmt.Fprintf(os.Stderr, "daemon_conn_pool target=%s hits=%d misses=%d dials=%d drops=%d\n", strings.TrimSpace(target), s.Hits, s.Misses, s.Dials, s.Drops)
 }
 
 func deephStructFromAny(v any) (*structpb.Struct, error) {

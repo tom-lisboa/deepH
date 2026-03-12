@@ -372,6 +372,13 @@ deeph trace --daemon=false guide "analyze this"
 deeph run --daemon=false guide "analyze this"
 ```
 
+Debug connection pool stats (for engineering):
+
+```bash
+DEEPH_DAEMON_DEBUG=1 deeph run guide "analyze this"
+# stderr example: daemon_conn_pool target=127.0.0.1:7788 hits=1 misses=1 dials=1 drops=0
+```
+
 You can also run foreground mode:
 
 ```bash

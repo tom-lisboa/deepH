@@ -207,6 +207,9 @@ func cmdTrace(args []string) error {
 		target = deephDaemonDefaultTarget()
 	}
 	if *useDaemon {
+		if daemonConnDebugEnabled() {
+			defer maybePrintDaemonConnStats(target)
+		}
 		req := daemonTraceRequest{
 			Workspace:    *workspace,
 			AgentSpecArg: agentSpecArg,
@@ -350,6 +353,9 @@ func cmdRun(args []string) error {
 		target = deephDaemonDefaultTarget()
 	}
 	if *useDaemon {
+		if daemonConnDebugEnabled() {
+			defer maybePrintDaemonConnStats(target)
+		}
 		req := daemonRunRequest{
 			Workspace:           *workspace,
 			AgentSpecArg:        agentSpecArg,

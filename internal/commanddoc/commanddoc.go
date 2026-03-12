@@ -276,6 +276,7 @@ var docs = []Doc{
 			"`--daemon` defaults to `true` and forwards the request to a local `deephd` gRPC daemon.",
 			"If daemon is unavailable, deepH tries to start it and falls back to local execution when needed.",
 			"Use `--daemon=false` to force local in-process execution.",
+			"Set `DEEPH_DAEMON_DEBUG=1` to print daemon connection-pool stats (`hits/misses/dials/drops`) to stderr.",
 		},
 	},
 	{
@@ -303,6 +304,7 @@ var docs = []Doc{
 			"`--daemon` defaults to `true` and forwards the run to a local `deephd` gRPC daemon.",
 			"If daemon is unavailable, deepH tries to start it and falls back to local execution when needed.",
 			"Use `--daemon=false` to force local in-process execution.",
+			"Set `DEEPH_DAEMON_DEBUG=1` to print daemon connection-pool stats (`hits/misses/dials/drops`) to stderr.",
 			"Shows occasional local semantic hints while waiting (disable with `--coach=false` or `DEEPH_COACH=0`).",
 			"Coach also learns local command transitions (ex.: run -> trace) to suggest likely next steps without using LLM tokens.",
 		},
