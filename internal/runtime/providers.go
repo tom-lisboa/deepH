@@ -3,15 +3,25 @@ package runtime
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"deeph/internal/project"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type MockProvider struct {
@@ -117,6 +127,12 @@ func (p *HTTPProvider) Generate(ctx context.Context, req LLMRequest) (LLMRespons
 type DeepSeekProvider struct {
 	cfg    project.ProviderConfig
 	client *http.Client
+}
+
+type GRPCProvider struct {
+	cfg  project.ProviderConfig
+	mu   sync.Mutex
+	conn *grpc.ClientConn
 }
 
 func (p *DeepSeekProvider) Name() string { return p.cfg.Name }
@@ -395,6 +411,331 @@ type deepSeekErrorResponseBody struct {
 	Code    any    `json:"code"`
 }
 
+const defaultGRPCProviderMethod = "/deeph.runtime.v1.ProviderService/Generate"
+
+func (p *GRPCProvider) Name() string { return p.cfg.Name }
+
+func (p *GRPCProvider) Generate(ctx context.Context, req LLMRequest) (LLMResponse, error) {
+	payload := map[string]any{
+		"agent_name":       req.AgentName,
+		"agent":            req.AgentName,
+		"model":            coalesce(req.Model, p.cfg.Model),
+		"system_prompt":    req.SystemPrompt,
+		"input":            req.Input,
+		"available_skills": req.AvailableSkills,
+		"startup_results":  req.StartupResults,
+		"messages":         req.Messages,
+		"tools":            req.Tools,
+		"tool_choice":      req.ToolChoice,
+	}
+	normalizedPayload, err := normalizeGRPCPayload(payload)
+	if err != nil {
+		return LLMResponse{}, fmt.Errorf("marshal grpc provider payload: %w", err)
+	}
+	in, err := structpb.NewStruct(normalizedPayload)
+	if err != nil {
+		return LLMResponse{}, fmt.Errorf("build grpc provider payload: %w", err)
+	}
+
+	conn, err := p.connection(ctx)
+	if err != nil {
+		return LLMResponse{}, err
+	}
+	method := strings.TrimSpace(p.cfg.GRPCMethod)
+	if method == "" {
+		method = defaultGRPCProviderMethod
+	}
+
+	callCtx := ctx
+	if md := p.outgoingMetadata(); len(md) > 0 {
+		callCtx = metadata.NewOutgoingContext(callCtx, md)
+	}
+
+	out := &structpb.Struct{}
+	if err := conn.Invoke(callCtx, method, in, out); err != nil {
+		return LLMResponse{}, fmt.Errorf("grpc provider invoke %s: %w", method, err)
+	}
+	return grpcStructToLLMResponse(out.AsMap(), p.cfg, req), nil
+}
+
+func (p *GRPCProvider) connection(ctx context.Context) (*grpc.ClientConn, error) {
+	p.mu.Lock()
+	if p.conn != nil {
+		conn := p.conn
+		p.mu.Unlock()
+		return conn, nil
+	}
+	p.mu.Unlock()
+
+	target := grpcTargetFromConfig(p.cfg)
+	if target == "" {
+		return nil, fmt.Errorf("grpc provider %q requires grpc_target (or base_url fallback)", p.cfg.Name)
+	}
+
+	dialOpts := []grpc.DialOption{grpc.WithBlock()}
+	if grpcShouldUseInsecure(p.cfg, target) {
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	} else {
+		tlsCfg := &tls.Config{MinVersion: tls.VersionTLS12}
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg)))
+	}
+
+	conn, err := grpc.DialContext(ctx, target, dialOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("grpc provider dial %q: %w", target, err)
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.conn != nil {
+		_ = conn.Close()
+		return p.conn, nil
+	}
+	p.conn = conn
+	return conn, nil
+}
+
+func (p *GRPCProvider) outgoingMetadata() metadata.MD {
+	md := metadata.MD{}
+	for k, v := range p.cfg.Headers {
+		key := strings.ToLower(strings.TrimSpace(k))
+		val := strings.TrimSpace(v)
+		if key == "" || val == "" {
+			continue
+		}
+		md.Set(key, val)
+	}
+	if p.cfg.APIKeyEnv != "" {
+		if key := strings.TrimSpace(os.Getenv(p.cfg.APIKeyEnv)); key != "" {
+			md.Set("authorization", "Bearer "+key)
+		}
+	}
+	return md
+}
+
+func normalizeGRPCPayload(payload map[string]any) (map[string]any, error) {
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	var out map[string]any
+	if err := json.Unmarshal(b, &out); err != nil {
+		return nil, err
+	}
+	if out == nil {
+		out = map[string]any{}
+	}
+	return out, nil
+}
+
+func grpcStructToLLMResponse(payload map[string]any, cfg project.ProviderConfig, req LLMRequest) LLMResponse {
+	if payload == nil {
+		payload = map[string]any{}
+	}
+
+	meta := map[string]any{}
+	if rawMeta, ok := anyMap(payload["meta"]); ok {
+		for k, v := range rawMeta {
+			meta[k] = v
+		}
+	}
+	if providerType := firstString(payload, "provider_type"); providerType != "" {
+		meta["provider_type"] = providerType
+	}
+	if len(meta) == 0 {
+		meta["provider_type"] = "grpc"
+	}
+
+	text := firstString(payload, "text", "output", "response")
+	if text == "" {
+		if nested, ok := anyMap(payload["response"]); ok {
+			text = firstString(nested, "text", "output")
+		}
+	}
+	model := firstString(payload, "model")
+	if model == "" {
+		model = coalesce(req.Model, cfg.Model)
+	}
+	providerName := firstString(payload, "provider")
+	if providerName == "" {
+		providerName = cfg.Name
+	}
+	finishReason := firstString(payload, "finish_reason")
+	if finishReason == "" {
+		finishReason = "stop"
+	}
+	reasoningContent := firstString(payload, "reasoning_content")
+	toolCalls := parseLLMToolCallsFromAny(payload["tool_calls"])
+	if len(toolCalls) == 0 {
+		if nested, ok := anyMap(payload["response"]); ok {
+			toolCalls = parseLLMToolCallsFromAny(nested["tool_calls"])
+			if reasoningContent == "" {
+				reasoningContent = firstString(nested, "reasoning_content")
+			}
+			if finishReason == "stop" {
+				if nestedFinish := firstString(nested, "finish_reason"); nestedFinish != "" {
+					finishReason = nestedFinish
+				}
+			}
+		}
+	}
+
+	return LLMResponse{
+		Text:             text,
+		Provider:         providerName,
+		Model:            model,
+		Meta:             meta,
+		FinishReason:     finishReason,
+		ReasoningContent: reasoningContent,
+		ToolCalls:        toolCalls,
+	}
+}
+
+func parseLLMToolCallsFromAny(v any) []LLMToolCall {
+	rawList, ok := v.([]any)
+	if !ok || len(rawList) == 0 {
+		return nil
+	}
+	out := make([]LLMToolCall, 0, len(rawList))
+	for _, raw := range rawList {
+		item, ok := anyMap(raw)
+		if !ok {
+			continue
+		}
+		tc := LLMToolCall{
+			ID:        stringFromAny(item["id"]),
+			Type:      coalesce(stringFromAny(item["type"]), "function"),
+			Name:      stringFromAny(item["name"]),
+			Arguments: stringFromAny(item["arguments"]),
+		}
+		if fn, ok := anyMap(item["function"]); ok {
+			if tc.Name == "" {
+				tc.Name = stringFromAny(fn["name"])
+			}
+			if tc.Arguments == "" {
+				tc.Arguments = stringFromAny(fn["arguments"])
+			}
+		}
+		if tc.Name == "" {
+			continue
+		}
+		out = append(out, tc)
+	}
+	return out
+}
+
+func firstString(m map[string]any, keys ...string) string {
+	if m == nil {
+		return ""
+	}
+	for _, key := range keys {
+		if value := strings.TrimSpace(stringFromAny(m[key])); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func anyMap(v any) (map[string]any, bool) {
+	m, ok := v.(map[string]any)
+	if !ok || m == nil {
+		return nil, false
+	}
+	return m, true
+}
+
+func stringFromAny(v any) string {
+	switch x := v.(type) {
+	case string:
+		return x
+	case fmt.Stringer:
+		return x.String()
+	case json.Number:
+		return x.String()
+	case float64:
+		return strings.TrimSuffix(strings.TrimSuffix(fmt.Sprintf("%.6f", x), "0"), ".")
+	case bool:
+		if x {
+			return "true"
+		}
+		return "false"
+	default:
+		return ""
+	}
+}
+
+func grpcTargetFromConfig(cfg project.ProviderConfig) string {
+	target := strings.TrimSpace(cfg.GRPCTarget)
+	if target == "" {
+		target = strings.TrimSpace(cfg.BaseURL)
+	}
+	if target == "" {
+		return ""
+	}
+
+	lower := strings.ToLower(target)
+	switch {
+	case strings.HasPrefix(lower, "dns:///"),
+		strings.HasPrefix(lower, "passthrough:///"),
+		strings.HasPrefix(lower, "unix://"),
+		strings.HasPrefix(lower, "unix:"):
+		return target
+	}
+
+	if parsed, err := url.Parse(target); err == nil && parsed.Host != "" {
+		return parsed.Host
+	}
+	return target
+}
+
+func grpcShouldUseInsecure(cfg project.ProviderConfig, target string) bool {
+	if cfg.GRPCInsecure {
+		return true
+	}
+	lower := strings.ToLower(strings.TrimSpace(target))
+	if strings.HasPrefix(lower, "unix://") || strings.HasPrefix(lower, "unix:") {
+		return true
+	}
+	host := grpcTargetHost(target)
+	if host == "" || strings.EqualFold(host, "localhost") {
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+		return true
+	}
+	return false
+}
+
+func grpcTargetHost(target string) string {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return ""
+	}
+	for _, prefix := range []string{"dns:///", "passthrough:///"} {
+		if strings.HasPrefix(strings.ToLower(target), prefix) {
+			target = target[len(prefix):]
+			break
+		}
+	}
+	if idx := strings.Index(target, "/"); idx >= 0 {
+		target = target[:idx]
+	}
+	if host, _, err := net.SplitHostPort(target); err == nil {
+		return strings.Trim(host, "[]")
+	}
+	if strings.HasPrefix(target, "[") && strings.Contains(target, "]") {
+		if idx := strings.Index(target, "]"); idx > 1 {
+			return target[1:idx]
+		}
+	}
+	if strings.Count(target, ":") == 1 {
+		if idx := strings.LastIndex(target, ":"); idx > 0 {
+			return target[:idx]
+		}
+	}
+	return target
+}
+
 type StubProvider struct {
 	cfg project.ProviderConfig
 }
@@ -415,6 +756,8 @@ func newProvider(pc project.ProviderConfig) Provider {
 		return &MockProvider{name: pc.Name, typeName: pc.Type, model: pc.Model}
 	case "http":
 		return &HTTPProvider{cfg: pc, client: &http.Client{Timeout: timeout}}
+	case "grpc":
+		return &GRPCProvider{cfg: pc}
 	case "deepseek":
 		return &DeepSeekProvider{cfg: pc, client: &http.Client{Timeout: timeout}}
 	case "openai", "anthropic", "ollama":

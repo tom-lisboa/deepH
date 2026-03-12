@@ -11,13 +11,16 @@ type RootConfig struct {
 }
 
 type ProviderConfig struct {
-	Name      string            `yaml:"name"`
-	Type      string            `yaml:"type"`
-	BaseURL   string            `yaml:"base_url"`
-	APIKeyEnv string            `yaml:"api_key_env"`
-	Model     string            `yaml:"model"`
-	Headers   map[string]string `yaml:"headers"`
-	TimeoutMS int               `yaml:"timeout_ms"`
+	Name         string            `yaml:"name"`
+	Type         string            `yaml:"type"`
+	BaseURL      string            `yaml:"base_url"`
+	APIKeyEnv    string            `yaml:"api_key_env"`
+	Model        string            `yaml:"model"`
+	Headers      map[string]string `yaml:"headers"`
+	TimeoutMS    int               `yaml:"timeout_ms"`
+	GRPCTarget   string            `yaml:"grpc_target"`
+	GRPCMethod   string            `yaml:"grpc_method"`
+	GRPCInsecure bool              `yaml:"grpc_insecure"`
 }
 
 type AgentConfig struct {

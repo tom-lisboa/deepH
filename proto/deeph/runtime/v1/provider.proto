@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package deeph.runtime.v1;
+
+option go_package = "deeph/proto/deeph/runtime/v1;runtimev1";
+
+import "google/protobuf/struct.proto";
+
+// Phase 1 scaffold:
+// request/response remain generic maps encoded as Struct to avoid forcing
+// generated code in the runtime at this step.
+//
+// Expected request keys:
+// - agent_name, model, system_prompt, input
+// - available_skills, startup_results, messages, tools, tool_choice
+//
+// Expected response keys:
+// - text (or output/response), provider, model, finish_reason
+// - reasoning_content, tool_calls, meta
+service ProviderService {
+  rpc Generate(google.protobuf.Struct) returns (google.protobuf.Struct);
+}

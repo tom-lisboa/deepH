@@ -241,6 +241,27 @@ go run ./cmd/deeph validate
 go run ./cmd/deeph run guide "teste"
 ```
 
+### Publish these changes (Git)
+
+```bash
+# 1) create a feature branch
+git checkout -b codex/grpc-daemon-default
+
+# 2) review what changed
+git status
+git diff -- README.md docs/COMMANDS.md cmd/deeph/main.go cmd/deeph/daemon.go cmd/deeph/run_output.go internal/commanddoc/commanddoc.go internal/project/types.go internal/project/validate.go internal/runtime/providers.go internal/runtime/providers_grpc_test.go proto/deeph/runtime/v1/provider.proto proto/deeph/daemon/v1/daemon.proto
+
+# 3) stage and commit
+git add README.md docs/COMMANDS.md cmd/deeph/main.go cmd/deeph/daemon.go cmd/deeph/run_output.go internal/commanddoc/commanddoc.go internal/project/types.go internal/project/validate.go internal/runtime/providers.go internal/runtime/providers_grpc_test.go proto/deeph/runtime/v1/provider.proto proto/deeph/daemon/v1/daemon.proto go.mod go.sum
+git commit -m "feat: add gRPC provider and optional deephd daemon with default daemon mode"
+
+# 4) push branch
+git push -u origin codex/grpc-daemon-default
+
+# 5) open PR (optional, if GitHub CLI is installed)
+gh pr create --fill
+```
+
 ## Config Example (`deeph.yaml`)
 
 ```yaml
@@ -291,6 +312,77 @@ Notes:
 - Function/tool-calling support varies by DeepSeek model/mode and is evolving; this runtime supports plain text completions and a local tool-calling loop (including replay of `reasoning_content` during tool loops)
 - For models/modes without function calling, set `metadata.tool_loop: "off"` in the agent to force plain-text generation (skills remain installed but are not exposed as tools in that run)
 - If a model rejects `tools`/`tool_choice`, deepH now retries automatically in plain-text mode
+
+## gRPC Provider (Scaffold)
+
+`deepH` now supports `provider.type: grpc` in `deeph.yaml` for binary internal links (HTTP/2 via gRPC).
+
+Example:
+
+```yaml
+version: 1
+default_provider: llm_grpc
+providers:
+  - name: llm_grpc
+    type: grpc
+    grpc_target: 127.0.0.1:50051
+    # optional, defaults to /deeph.runtime.v1.ProviderService/Generate
+    # grpc_method: /deeph.runtime.v1.ProviderService/Generate
+    # optional: auto-true for loopback/unix targets
+    # grpc_insecure: true
+    model: deepseek-chat
+    timeout_ms: 30000
+```
+
+Contract scaffold:
+
+- `proto/deeph/runtime/v1/provider.proto`
+- RPC: `ProviderService.Generate(google.protobuf.Struct) returns (google.protobuf.Struct)`
+
+Current scope:
+
+- provider add CLI scaffolding remains DeepSeek-focused (`deeph provider add ... deepseek`)
+- gRPC providers are configured manually in `deeph.yaml`
+- this phase keeps payload generic (`Struct`) to avoid locking message schema too early
+
+## deephd (Optional Local Daemon)
+
+`deepH` now includes an optional local daemon (`deephd`) so the CLI can act as a gRPC client.
+This is useful when you want multiple simultaneous CLI sessions reusing one daemon process.
+`deeph trace` and `deeph run` now use daemon mode by default.
+
+Default target:
+
+- `127.0.0.1:7788` (override with `DEEPH_DAEMON_TARGET` or `--daemon-target`)
+
+Typical flow:
+
+```bash
+deeph daemon start
+deeph daemon status
+deeph trace --daemon guide "analyze this"
+deeph run --daemon guide "analyze this"
+deeph daemon stop
+```
+
+Force local in-process mode (without daemon):
+
+```bash
+deeph trace --daemon=false guide "analyze this"
+deeph run --daemon=false guide "analyze this"
+```
+
+You can also run foreground mode:
+
+```bash
+deeph daemon serve --target 127.0.0.1:7788
+```
+
+Daemon contract scaffold:
+
+- `proto/deeph/daemon/v1/daemon.proto`
+- RPC methods: `Ping`, `Trace`, `Run`, `Shutdown`
+- payloads are `google.protobuf.Struct` in this phase (generic map contract)
 
 ## DeepSeek Tool Calling (MVP)
 
