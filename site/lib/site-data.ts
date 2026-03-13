@@ -23,45 +23,45 @@ export type TypeItem = {
 };
 
 export const projectPositioning = {
-  title: "Typed agent runtime in Go, com foco em custo e orquestração.",
+  title: "Working-set CLI for code operations.",
   subtitle:
-    "deepH é um runtime leve para agentes definidos pelo usuário, com channels tipados, DAG, multiverse crews e integração DeepSeek-first."
+    "deepH transforma qualquer codebase em um working set focado para diagnose, edit e review, selecionando diffs, simbolos, testes e handoffs tipados em vez de replayar o repo inteiro."
 };
 
 export const valuePillars = [
   {
-    title: "Baixo Token",
+    title: "Working Set Primeiro",
     body:
-      "Context compiler com budgets, channels tipados, handoffs compactos e leitura por faixa reduzem replay de contexto.",
-    tag: "token-aware"
+      "O runtime parte de diff, simbolos proximos, testes relevantes, imports e reverse imports para montar um escopo menor e mais util.",
+    tag: "diff-aware"
   },
   {
-    title: "Orquestração Séria",
+    title: "Diagnose, Edit, Review",
     body:
-      "DAG + depends_on_ports + channels + merge policy. O fluxo deixa de ser chat solto e vira pipeline observável.",
-    tag: "dag_channels"
+      "Os fluxos principais ja existem como comandos opinativos. O foco nao e ser um chat generico; e operar codigo com escopo claro.",
+    tag: "code-ops"
   },
   {
-    title: "Agentes do Usuário",
+    title: "Local-First e Observavel",
     body:
-      "O core não embute “agentes mágicos”. O usuário cria `agents/*.yaml`, define portas, tipos, tools e budgets.",
+      "Validate, trace, checks deterministicos, budgets de contexto e execucao `deeph-only` tornam o comportamento mais auditavel que um transcript cru.",
+    tag: "traceable"
+  },
+  {
+    title: "Runtime do Usuario",
+    body:
+      "Agents, skills e providers continuam do usuario. O diferencial e a selecao de contexto e a operacao focada, nao lock-in de personalidade.",
     tag: "user-owned"
-  },
-  {
-    title: "Multiverso Prático",
-    body:
-      "Crews com universos, judge e agora channels entre universos permitem comparar e sintetizar estratégias sem duplicar tudo.",
-    tag: "crews+judge"
   }
 ];
 
 export const quickStartCommands = [
-  "go run ./cmd/deeph init",
-  "cp examples/agents/guide.yaml agents/guide.yaml",
-  "go run ./cmd/deeph skill add echo",
-  "go run ./cmd/deeph validate",
-  'go run ./cmd/deeph trace guide "teste"',
-  'go run ./cmd/deeph run guide "teste"'
+  "deeph quickstart --workspace . --deepseek",
+  'export DEEPSEEK_API_KEY="sk-...your_real_key..."',
+  'deeph diagnose "paste the error or stack trace"',
+  'deeph edit "make the requested change"',
+  "deeph review",
+  "deeph chat guide"
 ];
 
 export const commandDocs: CommandDoc[] = [

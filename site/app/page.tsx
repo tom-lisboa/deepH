@@ -20,17 +20,13 @@ export default function HomePage() {
           <div>
             <div className="eyebrow">
               <span className="eyebrow-dot" />
-              Go runtime + typed orchestration + DeepSeek-first
+              Working-set CLI for diagnose, edit and review
             </div>
             <h1 className="hero-title">
-              Let&apos;s{" "}
-              <span className="hero-go-word" aria-label="Go (Go language wordplay)">
-                Go
-              </span>{" "}
-              Deeph.
+              Turn any codebase into a focused working set.
             </h1>
             <p className="hero-headline-note">
-              Universos colaboram um com o outro.
+              Less transcript. Less repo replay. Better code operations.
             </p>
             <p className="lead">{projectPositioning.subtitle}</p>
             <div className="hero-actions">
@@ -48,60 +44,60 @@ export default function HomePage() {
               </Link>
             </div>
             <div className="pill-list" style={{ marginTop: "0.9rem" }}>
-              <span className="tag accent">Go</span>
-              <span className="tag">Typed ports/channels</span>
-              <span className="tag">Multiverse crews</span>
-              <span className="tag warn">Low-token focus</span>
-              <span className="tag">DeepSeek tools</span>
+              <span className="tag accent">Working set</span>
+              <span className="tag">Diff-aware review</span>
+              <span className="tag">Diagnose/Edit/Review</span>
+              <span className="tag warn">Local-first</span>
+              <span className="tag">Typed handoffs</span>
             </div>
 
             <div className="hero-rail" aria-label="Rotas rápidas para começar">
-              <Link href="/docs/hello-worlds" className="hero-rail-card">
-                <span className="hero-rail-label">Aprender</span>
-                <strong>Hello World Lab</strong>
-                <p>Escolha linguagem/estilo, copie prompt e rode com seu agent.</p>
-                <code>deeph run "&lt;spec&gt;" "hello world ..."</code>
+              <Link href="/docs" className="hero-rail-card">
+                <span className="hero-rail-label">Diagnose</span>
+                <strong>Investigate bounded failures</strong>
+                <p>Parta de stack trace, stderr ou saida quebrada sem despejar o repo inteiro no contexto.</p>
+                <code>deeph diagnose "paste the failing output"</code>
               </Link>
               <Link href="/docs/calculadora" className="hero-rail-card">
-                <span className="hero-rail-label">Construir</span>
-                <strong>Calculadora Fullstack</strong>
-                <p>Step-by-step para Next + API route + skills de arquivo.</p>
-                <code>planner&gt;backend+frontend&gt;reviewer</code>
+                <span className="hero-rail-label">Edit</span>
+                <strong>Make focused code changes</strong>
+                <p>Use o caminho opinativo de edicao para mudar codigo com escopo mais controlado.</p>
+                <code>deeph edit "implement the requested change"</code>
               </Link>
-              <Link href="/docs#customizacao" className="hero-rail-card">
-                <span className="hero-rail-label">Customizar</span>
-                <strong>Agents + Skills + Universos</strong>
-                <p>Crie seus contratos, portas, channels e crews em YAML.</p>
-                <code>agents/*.yaml · skills/*.yaml · crews/*.yaml</code>
+              <Link href="/docs" className="hero-rail-card">
+                <span className="hero-rail-label">Review</span>
+                <strong>Review diffs with working-set expansion</strong>
+                <p>Comece do `git diff`, expanda por simbolo e rode checks deterministicos antes da sintese.</p>
+                <code>deeph review --trace</code>
               </Link>
             </div>
           </div>
 
           <div className="hero-aside">
             <div className="panel">
-              <div className="section-kicker">Start</div>
-              <h3>Quick Start (real)</h3>
-              <p>Fluxo mínimo para validar o runtime localmente antes de partir para DeepSeek.</p>
+              <div className="section-kicker">Proof</div>
+              <h3>Quick proof on a real project</h3>
+              <p>Fluxo minimo para provar diagnose, edit e review no workspace que voce ja quer operar.</p>
               <div style={{ marginTop: "0.65rem" }}>
                 <CodeBlock code={quickStartCommands.join("\n")} language="bash" />
               </div>
             </div>
             <div className="metric-grid">
               <div className="metric-card">
-                <div className="label">Arquitetura</div>
-                <div className="value">DAG + Channels</div>
+                <div className="label">Scope</div>
+                <div className="value">Diff + symbols</div>
               </div>
               <div className="metric-card">
-                <div className="label">Contexto</div>
-                <div className="value">type + moment</div>
+                <div className="label">Review</div>
+                <div className="value">Go-aware set</div>
               </div>
               <div className="metric-card">
-                <div className="label">Multiverso</div>
-                <div className="value">Crews + Judge</div>
+                <div className="label">Runtime</div>
+                <div className="value">Typed DAG</div>
               </div>
               <div className="metric-card">
-                <div className="label">UX Terminal</div>
-                <div className="value">Chat + Coach</div>
+                <div className="label">Execution</div>
+                <div className="value">Local-first</div>
               </div>
             </div>
           </div>
@@ -111,11 +107,11 @@ export default function HomePage() {
       <section className="grid-2">
         <div className="section-card fade-up">
           <div className="section-kicker">Why deepH</div>
-          <h2>Por que alguém vai usar o deepH?</h2>
+          <h2>Por que o deepH e diferente?</h2>
           <p>
-            Porque ele não tenta ser só “mais um chat CLI”. O foco é virar um runtime
-            de agentes tipado em Go, com custo/token sob controle, orquestração observável
-            e liberdade para o usuário criar seus próprios agents.
+            Porque ele comeca do working set, nao do transcript. O foco e transformar
+            diagnose, edit e review em operacoes com escopo explicito, menos ruido e
+            mais previsibilidade.
           </p>
           <div className="stack" style={{ marginTop: "0.7rem" }}>
             {valuePillars.map((pillar) => (
@@ -131,23 +127,22 @@ export default function HomePage() {
         </div>
 
         <div className="section-card fade-up">
-          <div className="section-kicker">Pitch</div>
-          <h2>Pitch rápido</h2>
+          <div className="section-kicker">Promise</div>
+          <h2>Promessa tecnica</h2>
           <p>
-            <strong>deepH</strong> é um runtime leve de agentes em Go para workflows
-            definidos pelo usuário, com ports/channels tipados, budgets de contexto/tools
-            e multiverso com crews.
+            <strong>deepH</strong> transforma qualquer codebase em um working set focado
+            para diagnosticar erros, editar codigo e revisar mudancas sem replayar o repo inteiro.
           </p>
           <hr className="divider" />
-          <h3>Se você quer…</h3>
+          <h3>Se voce quer…</h3>
           <ul className="subtle-list">
-            <li>controlar custo/token com arquitetura (não só modelo)</li>
-            <li>montar pipelines multi-agent reprodutíveis</li>
-            <li>tipar handoffs e fazer merge por porta</li>
-            <li>testar universos alternativos e reconciliar com judge</li>
+            <li>investigar erros sem despejar a codebase toda no contexto</li>
+            <li>editar com escopo menor e handoffs mais claros</li>
+            <li>revisar diffs com expansao Go-aware e checks deterministicos</li>
+            <li>manter execucao observavel, local-first e controlada</li>
           </ul>
           <p style={{ marginTop: "0.8rem" }}>
-            …o deepH está no caminho certo para isso.
+            ...o deepH ja tem base real para isso.
           </p>
           <div className="mini-link-list">
             <Link href="/docs">Docs completas</Link>

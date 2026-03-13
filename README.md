@@ -1,35 +1,39 @@
 # deepH
 
-`deepH` is a lightweight agent runtime in Go for user-defined agents and installable skills.
+`deepH` turns any codebase into a focused working set for diagnose, edit and review.
 
-The core idea is simple:
+Instead of replaying raw transcripts or stuffing the whole repository into context, `deepH` selects the code that matters:
 
-- the runtime knows contracts (`agent`, `skill`, `provider`)
-- users define agents in `YAML`
-- skills are optional and installable
-- providers are swappable
+- changed files and nearby symbols
+- relevant tests, imports and reverse imports
+- typed handoffs between agents
+- compact tool results and artifacts
+
+Under the hood, `deepH` is a lightweight agent runtime in Go for user-defined agents and installable skills.
+The runtime knows contracts (`agent`, `skill`, `provider`), while users own the agents in `YAML` and choose which skills/providers to install.
 
 This is not a locked app with baked-in agents.
-It is an engine that loads your agents.
+It is a local-first engine for focused code operations.
 <img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/7a45e768-d33a-4eb6-8269-3f0322a627ae" />
 
 
 ## Why this is different
 
-- Lightweight Go binary and low dependency surface
-- Agents belong to the user (`agents/*.yaml`)
-- Skills are optional (`deeph skill add ...`)
-- Provider-agnostic runtime (`mock`, `http`, future DeepSeek/OpenAI/etc.)
-- Built-in `validate` and `trace` for observability and debugging
+- `diagnose` turns failing output into a bounded investigation
+- `edit` routes code-change work through a focused agent path
+- `review` starts from `git diff` and expands to a Go-aware working set
+- built-in `validate` and `trace` show what will run and why
+- agents, skills and providers stay user-owned instead of locked into the app
 
-## Status
+## What works today
 
-Current CLI/runtime status:
+Current product/runtime status:
 
-- `chat` with session persistence, local routing and `deeph-only` command execution
-- `edit` as the focused code-change path through `coder`
 - `diagnose` as the focused error-analysis path through `diagnoser`
+- `edit` as the focused code-change path through `coder`
 - `review` with diff-aware Go working-set selection
+- deterministic Go preflight checks before review (`go test ./...` and `go vet ./...`)
+- `chat` with session persistence, local routing and `deeph-only` command execution
 - official `reviewflow` crew with multiverse review + synth
 - `studio` with grouped flows, quick resume and review entrypoint
 - typed handoffs, context budgets and execution tracing

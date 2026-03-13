@@ -1,6 +1,6 @@
 # deeph-cli
 
-NPM launcher for `deepH` (Go CLI).
+NPM launcher for `deepH`, the working-set CLI for diagnose, edit and review.
 
 It downloads the correct prebuilt binary for your OS from GitHub Releases and exposes:
 
