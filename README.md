@@ -1,6 +1,6 @@
 # deepH
 
-`deepH` turns any codebase into a focused working set for diagnose, edit and review.
+`deepH` turns any codebase into a focused working set for diagnosis, edits, and review.
 
 Instead of replaying raw transcripts or stuffing the whole repository into context, `deepH` selects the code that matters:
 
